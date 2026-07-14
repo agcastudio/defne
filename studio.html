@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stüdyo — Pafta Studio</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23201c17'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='%23f7f4ee' font-family='Georgia'%3EP%3C/text%3E%3Cpath d='M78 78 L100 100 L56 100 Z' fill='%23b8502f'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">P</span>
+      <span><b>Pafta Studio</b><small>Mimari Sunum</small></span>
+    </a>
+    <nav class="topnav">
+      <button class="btn btn-soft btn-sm" id="btnSample" type="button">⚡ Örnek projeyi yükle</button>
+    </nav>
+  </div>
+</header>
+
+<main class="studio-main">
+  <div class="container">
+
+    <ol class="stepper" id="stepper">
+      <li data-step="1" class="active"><span class="snum">1</span><span class="slabel"><b>Girdiler</b><span>Plan · kesit · logo</span></span></li>
+      <li data-step="2"><span class="snum">2</span><span class="slabel"><b>Proje Bilgileri</b><span>Künye · palet · tipolojiler</span></span></li>
+      <li data-step="3"><span class="snum">3</span><span class="slabel"><b>Üretim</b><span>Yapay zekâ görselleri</span></span></li>
+      <li data-step="4"><span class="snum">4</span><span class="slabel"><b>Sunum Dosyası</b><span>Kapak · sayfalar · PDF</span></span></li>
+    </ol>
+
+    <!-- ============ ADIM 1: GİRDİLER ============ -->
+    <section class="step-panel active" data-step="1">
+      <div class="panel-head">
+        <div>
+          <h2>Girdilerinizi yükleyin</h2>
+          <p>Şematik çizimlerinizin fotoğrafı ya da taraması yeterlidir (PNG, JPG, WebP, SVG). Yalnızca kat planı zorunludur.</p>
+        </div>
+      </div>
+
+      <div class="upload-grid">
+        <div class="upload-card">
+          <h3>Kat Planı <span class="req">*</span></h3>
+          <p class="hint">Tefrişli boyalı plan, perspektif plan ve renderın temelidir.</p>
+          <div class="dropzone" id="dzPlan" tabindex="0" role="button" aria-label="Kat planı yükle">
+            <div class="dz-inner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+              <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+            </div>
+          </div>
+          <input type="file" id="filePlan" accept="image/*" hidden>
+          <div class="file-actions">
+            <span class="file-name" id="namePlan"></span>
+            <button class="link-danger" id="rmPlan" type="button" hidden>Kaldır</button>
+          </div>
+        </div>
+
+        <div class="upload-card">
+          <h3>Şematik Kesit</h3>
+          <p class="hint">İsteğe bağlı — sunum kesiti ve render için kütle bilgisi sağlar.</p>
+          <div class="dropzone" id="dzKesit" tabindex="0" role="button" aria-label="Şematik kesit yükle">
+            <div class="dz-inner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+              <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+            </div>
+          </div>
+          <input type="file" id="fileKesit" accept="image/*" hidden>
+          <div class="file-actions">
+            <span class="file-name" id="nameKesit"></span>
+            <button class="link-danger" id="rmKesit" type="button" hidden>Kaldır</button>
+          </div>
+        </div>
+
+        <div class="upload-card">
+          <h3>Firma Logosu</h3>
+          <p class="hint">İsteğe bağlı — paftanın başlık bandında görünür.</p>
+          <div class="dropzone" id="dzLogo" tabindex="0" role="button" aria-label="Firma logosu yükle">
+            <div class="dz-inner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+              <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+            </div>
+          </div>
+          <input type="file" id="fileLogo" accept="image/*" hidden>
+          <div class="file-actions">
+            <span class="file-name" id="nameLogo"></span>
+            <button class="link-danger" id="rmLogo" type="button" hidden>Kaldır</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <span></span>
+        <div class="right">
+          <button class="btn btn-primary" data-goto="2" type="button">İleri: Proje Bilgileri →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ADIM 2: PROJE BİLGİLERİ ============ -->
+    <section class="step-panel" data-step="2">
+      <div class="panel-head">
+        <div>
+          <h2>Proje bilgileri &amp; kimlik</h2>
+          <p>Bu bilgiler paftanın künyesinde yer alır; palet ve stil seçiminiz üretilen tüm görsellere yansır.</p>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3>Proje Künyesi</h3>
+        <p class="sub">Yıldızlı alan zorunludur; boş bırakılanlar paftada gösterilmez.</p>
+        <div class="form-grid">
+          <div class="field span2">
+            <label for="fProjeAdi">Proje Adı *</label>
+            <input id="fProjeAdi" type="text" placeholder="örn. Vadi Evleri Konut Projesi">
+          </div>
+          <div class="field">
+            <label for="fKonum">Konum</label>
+            <input id="fKonum" type="text" placeholder="örn. Urla, İzmir">
+          </div>
+          <div class="field">
+            <label for="fIsveren">İşveren</label>
+            <input id="fIsveren" type="text" placeholder="örn. ABC Yapı A.Ş.">
+          </div>
+          <div class="field">
+            <label for="fFirma">Mimari Ofis / Firma</label>
+            <input id="fFirma" type="text" placeholder="örn. Atölye A Mimarlık">
+          </div>
+          <div class="field">
+            <label for="fOlcek">Ölçek</label>
+            <input id="fOlcek" type="text" placeholder="örn. 1/100">
+          </div>
+          <div class="field">
+            <label for="fArsa">Arsa Alanı (m²)</label>
+            <input id="fArsa" type="text" inputmode="decimal" placeholder="örn. 2450">
+          </div>
+          <div class="field">
+            <label for="fInsaat">İnşaat Alanı (m²)</label>
+            <input id="fInsaat" type="text" inputmode="decimal" placeholder="örn. 6800">
+          </div>
+          <div class="field">
+            <label for="fKat">Kat Sayısı</label>
+            <input id="fKat" type="text" placeholder="örn. Zemin + 3">
+          </div>
+          <div class="field span3">
+            <label for="fNot">Pafta Notu</label>
+            <textarea id="fNot" placeholder="Paftanın alt bandında görünecek kısa açıklama — örn. Zemin katta ticari birimler, üst katlarda 1+1 ve 2+1 konutlar."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3>Renk Paleti</h3>
+        <p class="sub">Plan boyaması ve görsellerin genel atmosferini belirler.</p>
+        <div class="palette-grid" id="paletteGrid"></div>
+      </div>
+
+      <div class="form-card">
+        <h3>Mimari Stil</h3>
+        <p class="sub">Tefriş dili ve dış mekân renderının karakterini belirler.</p>
+        <div class="chip-row" id="styleRow"></div>
+      </div>
+
+      <div class="form-card">
+        <h3>Konut Tipolojileri</h3>
+        <p class="sub">Her tip için ayrı plan üretilir. Tipin kendi çizimi varsa yükleyin; yoksa ana kat planı üzerinden ilgili birime odaklanılır.</p>
+        <div id="typoList"></div>
+        <button class="btn btn-soft btn-sm" id="btnAddTypo" type="button">+ Tipoloji Ekle</button>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-ghost" data-goto="1" type="button">← Girdiler</button>
+        <div class="right">
+          <button class="btn btn-primary" data-goto="3" type="button">İleri: Üretim →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ADIM 3: ÜRETİM ============ -->
+    <section class="step-panel" data-step="3">
+      <div class="panel-head">
+        <div>
+          <h2>Görselleri üretin</h2>
+          <p>Görseller Google'ın <b>Nano Banana Pro</b> (Gemini 3 Pro Image) modeliyle üretilir. Anahtar girmezseniz, akışı denemeniz için palete uygun stilize önizlemeler oluşturulur.</p>
+        </div>
+      </div>
+
+      <div class="form-card api-panel">
+        <h3>Yapay Zekâ Bağlantısı</h3>
+        <p class="sub">Anahtarınız yalnızca bu tarayıcıda (localStorage) saklanır; hiçbir sunucumuza gönderilmez.</p>
+        <div class="form-grid">
+          <div class="field">
+            <label for="fApiKey">Gemini API Anahtarı</label>
+            <input id="fApiKey" type="password" placeholder="AIza..." autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="fModel">Model</label>
+            <select id="fModel">
+              <option value="gemini-3-pro-image-preview">Nano Banana Pro — Gemini 3 Pro Image (en yüksek kalite)</option>
+              <option value="gemini-2.5-flash-image">Nano Banana — Gemini 2.5 Flash Image (hızlı / ekonomik)</option>
+            </select>
+          </div>
+        </div>
+        <p class="note">Ücretsiz anahtar: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> · Üretim sırasında yüklediğiniz görseller yalnızca Google Gemini API'sine gönderilir. <b>Anahtar yoksa</b> "stilize önizleme" modu devreye girer. Anahtarınız Nano Banana Pro'ya kapalıysa (kota/faturalandırma hatası) listeden Nano Banana'ya geçin.</p>
+      </div>
+
+      <div class="outputs-toolbar">
+        <span class="status-line" id="genStatus">Hazır.</span>
+        <button class="btn btn-accent" id="btnGenAll" type="button">✦ Tümünü Üret</button>
+      </div>
+
+      <div class="outputs-grid" id="outputsGrid"></div>
+
+      <div class="step-actions">
+        <button class="btn btn-ghost" data-goto="2" type="button">← Proje Bilgileri</button>
+        <div class="right">
+          <button class="btn btn-primary" data-goto="4" type="button">İleri: Sunum Dosyası →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ADIM 4: SUNUM DOSYASI ============ -->
+    <section class="step-panel" data-step="4">
+      <div class="panel-head">
+        <div>
+          <h2>Sunum dosyası</h2>
+          <p>Çok sayfalı A3 yatay format: kapak sayfası + her içerik ve her tipoloji için ayrı pafta. "PDF / Yazdır" ile tarayıcının yazdırma penceresinden <b>PDF olarak kaydet</b>'i seçin; kenar boşluklarını "Yok", arka plan grafiklerini "Açık" yapın.</p>
+        </div>
+      </div>
+
+      <div class="board-toolbar">
+        <div class="left">
+          <button class="btn btn-ghost" data-goto="3" type="button">← Üretime Dön</button>
+          <span class="status-line" id="pageCount"></span>
+        </div>
+        <div class="right">
+          <button class="btn btn-soft" id="btnDownloadAll" type="button">Görselleri İndir</button>
+          <button class="btn btn-primary" id="btnPrint" type="button">⎙ PDF / Yazdır</button>
+        </div>
+      </div>
+
+      <div class="pages-wrap" id="boardPages" aria-label="Sunum dosyası önizlemesi"></div>
+    </section>
+
+  </div>
+</main>
+
+<div id="toast" role="status"></div>
+
+<script src="js/config.js"></script>
+<script src="js/studio.js"></script>
+</body>
+</html>
