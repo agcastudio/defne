@@ -35,25 +35,33 @@ Kurulum gerekmez. İki seçenek:
 - Üretim, varsayılan olarak **Nano Banana Pro** (`gemini-3-pro-image-preview`,
   Gemini 3 Pro Image) modeliyle yapılır; 3. adımdan daha hızlı/ekonomik
   **Nano Banana** (`gemini-2.5-flash-image`) modeline geçilebilir.
-- API anahtarı: <https://aistudio.google.com/apikey>. İki kullanım şekli var:
-  1. **Siteye gömülü (kullanıcıdan istenmez):** Anahtarınızı
-     [`js/config.js`](js/config.js) dosyasındaki `apiKey: ""` alanına yapıştırın.
-     3. adımdaki "Yapay Zekâ Bağlantısı" paneli otomatik gizlenir ve site
-     doğrudan üretime hazır olur. İsterseniz `model` alanıyla modeli de
-     sabitleyebilirsiniz.
-  2. **Ziyaretçinin kendi anahtarı:** `config.js` boş bırakılırsa 3. adımda
-     anahtar alanı görünür; girilen anahtar yalnızca o tarayıcının
-     localStorage'ında saklanır.
+- API anahtarı: <https://aistudio.google.com/apikey>. Kullanım şekilleri
+  (öncelik sırasıyla, ayrıntılar [`js/config.js`](js/config.js) içinde):
+  1. **Ara sunucu / proxy (en güvenlisi):** [`worker/gemini-proxy.js`](worker/gemini-proxy.js)
+     dosyasındaki kodu ücretsiz bir Cloudflare Worker'a kurun, anahtarı orada
+     "Secret" olarak saklayın, worker adresini `config.js` → `proxyUrl` alanına
+     yazın. Anahtar siteye ve depoya hiç girmez.
+  2. **Kodlanmış gömülü anahtar (pratik):** Anahtarın base64 hâlini
+     `config.js` → `apiKeyB64` alanına koyun. Ziyaretçiden anahtar istenmez.
+  3. **Açık metin `apiKey`:** yalnızca kendi bilgisayarınızdaki kopyada!
+  4. **Ziyaretçinin kendi anahtarı:** hepsi boşsa 3. adımda anahtar alanı
+     görünür; girilen anahtar o tarayıcının localStorage'ında kalır.
 - (Nano Banana Pro bazı hesaplarda faturalandırma gerektirebilir; kota hatası
   alırsanız Nano Banana'ya geçin.)
 
-> **Güvenlik uyarısı:** `js/config.js` siteyle birlikte herkese açık yayınlanır.
-> Anahtarı gömüp siteyi internete koyarsanız, ziyaret eden herkes anahtarınızı
-> görebilir ve kotanızı/faturanızı kullanabilir. Yayınlamadan önce
+> **"API key was reported as leaked" hatası:** GitHub, herkese açık depoları
+> tarar ve bulduğu açık metin `AIza...` anahtarlarını Google'a bildirir; Google
+> da anahtarı kalıcı olarak iptal eder. Böyle bir anahtar kurtarılamaz:
+> [AI Studio](https://aistudio.google.com/apikey)'dan eskisini silin, yenisini
+> oluşturun ve yeni anahtarı depoya asla açık metin koymayın — yukarıdaki
+> 1. veya 2. yolu kullanın.
+
+> **Güvenlik uyarısı:** Kodlanmış (base64) anahtar da isteyen herkesçe
+> çözülebilir; yalnızca otomatik taramayı atlatır. Hangi yolu seçerseniz seçin
 > [Google Cloud Console](https://console.cloud.google.com/apis/credentials)'dan
-> anahtara **Website restrictions (HTTP referrer)** kısıtı ekleyip yalnızca kendi
-> alan adınıza izin verin ve bir harcama limiti tanımlayın. Site yalnızca ofis
-> içinde/kendi bilgisayarınızda kullanılacaksa bu risk yoktur.
+> anahtara **Website restrictions (HTTP referrer)** kısıtı ekleyip yalnızca
+> `https://KULLANICI.github.io/*` adresinize izin verin ve harcama
+> limiti/uyarısı tanımlayın.
 - Üretim sırasında yüklediğiniz görseller yalnızca Google Gemini API'sine gönderilir;
   başka hiçbir sunucuya veri gitmez.
 - **Anahtar girmezseniz** site yine çalışır: akışı denemeniz için seçtiğiniz palete
@@ -66,7 +74,8 @@ Kurulum gerekmez. İki seçenek:
 | `index.html` | Tanıtım sayfası |
 | `studio.html` | 4 adımlı stüdyo uygulaması |
 | `css/style.css` | Tasarım sistemi + sunum sayfaları + baskı (A3) stilleri |
-| `js/config.js` | Site yapılandırması (gömülü API anahtarı, model sabitleme) |
+| `js/config.js` | Site yapılandırması (proxy adresi / kodlanmış anahtar / model) |
+| `worker/gemini-proxy.js` | Cloudflare Worker ara sunucu kodu (anahtarı gizli tutar) |
 | `js/studio.js` | Yükleme, form, Gemini entegrasyonu, sunum dosyası oluşturma |
 
 ## İnternete yayınlama

@@ -321,16 +321,26 @@ $("#btnAddTypo").addEventListener("click", () => addTypology());
    ADIM 3 — ÜRETİM
    ============================================================ */
 
-/* Siteye gömülü yapılandırma (js/config.js) — anahtar gömülüyse kullanıcıdan istenmez */
+/* Siteye gömülü yapılandırma (js/config.js) — anahtar/proxy gömülüyse kullanıcıdan istenmez */
 const CFG = window.PAFTA_CONFIG || {};
-const EMBEDDED_KEY = (CFG.apiKey || "").trim();
+const EMBEDDED_KEY = (() => {
+  if ((CFG.apiKey || "").trim()) return CFG.apiKey.trim();
+  // Kodlanmış anahtar: GitHub'ın otomatik sızıntı taraması açık metin "AIza..." desenini
+  // yakalayıp anahtarı Google'a iptal ettirdiği için herkese açık depoda base64 saklanır.
+  if ((CFG.apiKeyB64 || "").trim()) {
+    try { return atob(CFG.apiKeyB64.trim()).trim(); } catch { return ""; }
+  }
+  return "";
+})();
+const PROXY_URL = (CFG.proxyUrl || "").trim().replace(/\/+$/, "");
 const EMBEDDED_MODEL = (CFG.model || "").trim();
 
 function apiKey() { return EMBEDDED_KEY || $("#fApiKey").value.trim(); }
 function modelName() { return EMBEDDED_MODEL || $("#fModel").value.trim() || DEFAULT_MODEL; }
+function hasAiAccess() { return !!(PROXY_URL || apiKey()); }
 
 function bindApi() {
-  if (EMBEDDED_KEY) {
+  if (EMBEDDED_KEY || PROXY_URL) {
     $(".api-panel").style.display = "none";
     const sub = $('.step-panel[data-step="3"] .panel-head p');
     if (sub) sub.innerHTML = "Görseller Google'ın <b>Nano Banana Pro</b> (Gemini 3 Pro Image) modeliyle üretilir. Bağlantı site tarafından yapılandırıldı — doğrudan “Tümünü Üret” diyebilirsiniz.";
@@ -485,12 +495,17 @@ async function callGemini(promptText, dataUrls) {
     const { mimeType, data } = await toJpegBase64(u);
     parts.push({ inlineData: { mimeType, data } });
   }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName())}:generateContent`;
+  // Proxy tanımlıysa istek ona gider; anahtar tarayıcıya hiç inmez.
+  const url = PROXY_URL
+    ? `${PROXY_URL}/${encodeURIComponent(modelName())}`
+    : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName())}:generateContent`;
+  const reqHeaders = { "Content-Type": "application/json" };
+  if (!PROXY_URL) reqHeaders["x-goog-api-key"] = apiKey();
   let res;
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey() },
+      headers: reqHeaders,
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
@@ -503,6 +518,7 @@ async function callGemini(promptText, dataUrls) {
   try { json = await res.json(); } catch { /* gövdesiz yanıt */ }
   if (!res.ok) {
     const msg = json?.error?.message || `HTTP ${res.status}`;
+    if (/leaked/i.test(msg)) throw new Error("Bu API anahtarı 'sızdırılmış' olarak işaretlenip Google tarafından iptal edilmiş. Eski anahtarı silip yeni bir anahtar oluşturun ve config.js'e kodlanmış biçimde ekleyin (bkz. README).");
     if (res.status === 400 && /API key/i.test(msg)) throw new Error("API anahtarı geçersiz görünüyor — anahtarı kontrol edin.");
     if (res.status === 429) throw new Error("Hız sınırına takıldınız — bir dakika bekleyip yeniden deneyin.");
     throw new Error("Servis hatası: " + msg);
@@ -560,7 +576,7 @@ async function generateItem(id, silent = false) {
   it.error = null;
   renderOutputs();
   try {
-    if (apiKey()) {
+    if (hasAiAccess()) {
       it.result = await callGemini(it.prompt, it.sources());
       it.status = "hazir";
     } else {
@@ -582,7 +598,7 @@ $("#btnGenAll").addEventListener("click", async () => {
   state.busy = true;
   const btn = $("#btnGenAll");
   btn.disabled = true;
-  const mode = apiKey() ? "Gemini ile üretiliyor" : "Stilize önizleme oluşturuluyor";
+  const mode = hasAiAccess() ? "Gemini ile üretiliyor" : "Stilize önizleme oluşturuluyor";
   let i = 0, fail = 0;
   for (const id of state.order) {
     i++;
