@@ -28,10 +28,11 @@
    ============================================================ */
 
 window.PAFTA_CONFIG = {
-  // 1) Ara sunucu adresi, örn: "https://pafta-gemini.KULLANICI.workers.dev"
-  proxyUrl: "",
+  // 1) Ara sunucu adresi — anahtar Cloudflare'de Secret olarak saklanır,
+  //    siteye ve depoya hiç girmez. (Aktif yöntem, 2026-07-15)
+  proxyUrl: "https://pafta-gemini.kutbeddinagca.workers.dev",
 
-  // 2) Base64 kodlanmış anahtar (herkese açık depo için önerilen biçim)
+  // 2) Base64 kodlanmış anahtar (proxy kullanıldığı için boş)
   apiKeyB64: "",
 
   // 3) Açık metin anahtar (yalnızca kendi bilgisayarınızda!)
