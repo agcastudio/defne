@@ -85,6 +85,14 @@ a:hover { text-decoration: underline; }
 .btn-soft { background: var(--paper-2); color: var(--ink); border-color: var(--line); }
 .btn-soft:hover { border-color: var(--ink-soft); }
 .btn-sm { font-size: 13.5px; padding: 8px 15px; }
+.btn-lg { font-size: 17.5px; padding: 16px 34px; }
+.btn-glow {
+  box-shadow: 0 8px 24px rgba(184, 80, 47, .38), 0 2px 6px rgba(142, 58, 32, .25);
+}
+.btn-glow:hover {
+  box-shadow: 0 12px 32px rgba(184, 80, 47, .48), 0 3px 9px rgba(142, 58, 32, .3);
+  transform: translateY(-2px);
+}
 .btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
 
 /* ---------------- Üst çubuk ---------------- */
@@ -114,6 +122,9 @@ a:hover { text-decoration: underline; }
 .topnav { display: flex; gap: 26px; align-items: center; }
 .topnav a { color: var(--ink-soft); font-size: 14.5px; font-weight: 600; }
 .topnav a:hover { color: var(--acc-deep); text-decoration: none; }
+/* Menüdeki düğmeler, .topnav a kuralına ezdirilmez */
+.topnav a.btn { font-size: 15px; }
+.topnav a.btn-accent, .topnav a.btn-accent:hover { color: #fff; }
 
 /* ---------------- Hero ---------------- */
 .hero { padding: 76px 0 88px; overflow: hidden; }

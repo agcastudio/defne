@@ -209,8 +209,8 @@ function bindInfo() {
   try {
     const saved = JSON.parse(localStorage.getItem(LS_INFO) || "{}");
     Object.assign(state.info, saved.info || {});
-    if (saved.palette && PALETTES[saved.palette]) state.palette = saved.palette;
-    if (saved.style && STYLES[saved.style]) state.style = saved.style;
+    // Palet ve stil arayüzden kaldırıldı; arka planda sabit tek seçenek kullanılır
+    // (state.palette = "toprak", state.style = "modern").
   } catch { /* yoksay */ }
 
   for (const [k, sel] of Object.entries(INFO_FIELDS)) {
@@ -224,44 +224,6 @@ function persistInfo() {
   try {
     localStorage.setItem(LS_INFO, JSON.stringify({ info: state.info, palette: state.palette, style: state.style }));
   } catch { /* depolama dolu olabilir */ }
-}
-
-function renderPalettes() {
-  $("#paletteGrid").innerHTML = Object.entries(PALETTES).map(([k, p]) => `
-    <label class="palette-opt">
-      <input type="radio" name="palette" value="${k}" ${state.palette === k ? "checked" : ""}>
-      <span class="palette-box">
-        <span class="palette-swatches">${p.colors.map((c) => `<i style="background:${c}"></i>`).join("")}</span>
-        <b>${p.name}</b>
-        <span>${p.desc}</span>
-      </span>
-    </label>`).join("");
-  $("#paletteGrid").addEventListener("change", (e) => {
-    if (e.target.name === "palette") { state.palette = e.target.value; persistInfo(); resetPromptsToDefault(); }
-  });
-}
-
-function renderStyles() {
-  $("#styleRow").innerHTML = Object.entries(STYLES).map(([k, s]) => `
-    <label class="chip">
-      <input type="radio" name="style" value="${k}" ${state.style === k ? "checked" : ""}>
-      <span>${s.name}</span>
-    </label>`).join("");
-  $("#styleRow").addEventListener("change", (e) => {
-    if (e.target.name === "style") { state.style = e.target.value; persistInfo(); resetPromptsToDefault(); }
-  });
-}
-
-/* Palet/stil değişince, elle düzenlenmemiş promptları yenile */
-function resetPromptsToDefault() {
-  for (const item of Object.values(state.outputs)) {
-    if (item.prompt === item.defaultPrompt) {
-      item.defaultPrompt = buildPrompt(item);
-      item.prompt = item.defaultPrompt;
-    } else {
-      item.defaultPrompt = buildPrompt(item);
-    }
-  }
 }
 
 /* --- Tipolojiler --- */
@@ -862,7 +824,5 @@ window.addEventListener("beforeunload", (e) => {
 
 bindInfo();
 bindApi();
-renderPalettes();
-renderStyles();
 renderTypologies();
 syncStepUI();

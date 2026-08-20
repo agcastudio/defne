@@ -21,8 +21,10 @@ Kurulum gerekmez. İki seçenek:
 1. **Girdiler** — Kat planınızı (zorunlu), şematik kesitinizi ve firma logonuzu yükleyin.
    Telefonla çekilmiş eskiz fotoğrafı da olur. Üst bardaki **"Örnek projeyi yükle"**
    düğmesiyle hazır verilerle deneyebilirsiniz.
-2. **Proje Bilgileri** — Künyeyi doldurun; renk paleti, mimari stil ve konut
-   tipolojilerini (ad, alan, adet, isteğe bağlı tip çizimi) tanımlayın.
+2. **Proje Bilgileri** — Künyeyi doldurun ve konut tipolojilerini (ad, alan,
+   adet, isteğe bağlı tip çizimi) tanımlayın. Renk paleti ve mimari stil sabit
+   bir kurumsal ayarla arka planda uygulanır (`js/studio.js` içindeki
+   `state.palette` / `state.style` varsayılanları).
 3. **Üretim** — "Tümünü Üret" ile tüm görselleri oluşturun. Her kartta tek tek
    yeniden üretme ve prompt (üretim metni) düzenleme imkânı vardır.
 4. **Sunum Dosyası** — Kapak + içerik sayfalarından oluşan çok sayfalı A3 yatay
