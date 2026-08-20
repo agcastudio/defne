@@ -25,7 +25,7 @@
   <div class="container">
 
     <ol class="stepper" id="stepper">
-      <li data-step="1" class="active"><span class="snum">1</span><span class="slabel"><b>Girdiler</b><span>Plan · kesit · logo</span></span></li>
+      <li data-step="1" class="active"><span class="snum">1</span><span class="slabel"><b>Girdiler</b><span>Planlar · kesit · logo</span></span></li>
       <li data-step="2"><span class="snum">2</span><span class="slabel"><b>Proje Bilgileri</b><span>Künye · tipolojiler</span></span></li>
       <li data-step="3"><span class="snum">3</span><span class="slabel"><b>Üretim</b><span>Yapay zekâ görselleri</span></span></li>
       <li data-step="4"><span class="snum">4</span><span class="slabel"><b>Sunum Dosyası</b><span>Kapak · sayfalar · PDF</span></span></li>
@@ -36,56 +36,50 @@
       <div class="panel-head">
         <div>
           <h2>Girdilerinizi yükleyin</h2>
-          <p>Şematik çizimlerinizin fotoğrafı ya da taraması yeterlidir (PNG, JPG, WebP, SVG). Yalnızca kat planı zorunludur.</p>
+          <p>Şematik çizimlerinizin fotoğrafı ya da taraması yeterlidir (PNG, JPG, WebP, SVG). Elinizde hangi planlar varsa onları yükleyin — <b>en az bir plan</b> zorunludur; her yüklenen plan için ayrı sunum paftası üretilir.</p>
         </div>
       </div>
 
-      <div class="upload-grid">
-        <div class="upload-card">
-          <h3>Kat Planı <span class="req">*</span></h3>
-          <p class="hint">Tefrişli boyalı plan, perspektif plan ve renderın temelidir.</p>
-          <div class="dropzone" id="dzPlan" tabindex="0" role="button" aria-label="Kat planı yükle">
-            <div class="dz-inner">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
-              <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
-            </div>
-          </div>
-          <input type="file" id="filePlan" accept="image/*" hidden>
-          <div class="file-actions">
-            <span class="file-name" id="namePlan"></span>
-            <button class="link-danger" id="rmPlan" type="button" hidden>Kaldır</button>
-          </div>
-        </div>
+      <div class="form-card" style="margin-bottom:20px">
+        <h3>Planlar</h3>
+        <p class="sub">Kat planları tefrişli boyalı sunum planlarına, vaziyet planı ağaç-yol-zemin dokulu sunum vaziyetine dönüştürülür.</p>
+        <div class="upload-grid" id="planGrid"></div>
+      </div>
 
-        <div class="upload-card">
-          <h3>Şematik Kesit</h3>
-          <p class="hint">İsteğe bağlı — sunum kesiti ve render için kütle bilgisi sağlar.</p>
-          <div class="dropzone" id="dzKesit" tabindex="0" role="button" aria-label="Şematik kesit yükle">
-            <div class="dz-inner">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
-              <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+      <div class="form-card">
+        <h3>Diğer Girdiler</h3>
+        <p class="sub">İsteğe bağlı — kesit sunum kesitine dönüştürülür; logo tüm paftaların başlık bandında yer alır.</p>
+        <div class="upload-grid cols-2">
+          <div class="upload-card">
+            <h3>Şematik Kesit</h3>
+            <p class="hint">Sunum kesiti üretilir; render için kütle bilgisi sağlar.</p>
+            <div class="dropzone" id="dzKesit" tabindex="0" role="button" aria-label="Şematik kesit yükle">
+              <div class="dz-inner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+                <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+              </div>
+            </div>
+            <input type="file" id="fileKesit" accept="image/*" hidden>
+            <div class="file-actions">
+              <span class="file-name" id="nameKesit"></span>
+              <button class="link-danger" id="rmKesit" type="button" hidden>Kaldır</button>
             </div>
           </div>
-          <input type="file" id="fileKesit" accept="image/*" hidden>
-          <div class="file-actions">
-            <span class="file-name" id="nameKesit"></span>
-            <button class="link-danger" id="rmKesit" type="button" hidden>Kaldır</button>
-          </div>
-        </div>
 
-        <div class="upload-card">
-          <h3>Firma Logosu</h3>
-          <p class="hint">İsteğe bağlı — paftanın başlık bandında görünür.</p>
-          <div class="dropzone" id="dzLogo" tabindex="0" role="button" aria-label="Firma logosu yükle">
-            <div class="dz-inner">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
-              <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+          <div class="upload-card">
+            <h3>Firma Logosu</h3>
+            <p class="hint">Kapak ve tüm sayfaların başlık bandında görünür.</p>
+            <div class="dropzone" id="dzLogo" tabindex="0" role="button" aria-label="Firma logosu yükle">
+              <div class="dz-inner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+                <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+              </div>
             </div>
-          </div>
-          <input type="file" id="fileLogo" accept="image/*" hidden>
-          <div class="file-actions">
-            <span class="file-name" id="nameLogo"></span>
-            <button class="link-danger" id="rmLogo" type="button" hidden>Kaldır</button>
+            <input type="file" id="fileLogo" accept="image/*" hidden>
+            <div class="file-actions">
+              <span class="file-name" id="nameLogo"></span>
+              <button class="link-danger" id="rmLogo" type="button" hidden>Kaldır</button>
+            </div>
           </div>
         </div>
       </div>

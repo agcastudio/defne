@@ -22,6 +22,24 @@ const STYLES = {
   akdeniz:     { name: "Akdeniz", en: "Mediterranean" },
 };
 
+/* Plan türleri — her biri ayrı yüklenir, ayrı üretilir, ayrı pafta olur */
+const PLAN_TYPES = [
+  { key: "vaziyet", name: "Vaziyet Planı", en: "site plan", hint: "Arsa yerleşimi; ağaç, yol ve zemin dokularıyla sunum vaziyetine dönüştürülür." },
+  { key: "bodrum", name: "Bodrum Kat Planı", en: "basement floor", hint: "Otopark, depo ve teknik hacimler nizami tefrişlenir." },
+  { key: "zemin", name: "Zemin Kat Planı", en: "ground floor", hint: "Giriş katı; ticari birimler ve ortak alanlar." },
+  { key: "ara", name: "Ara Kat Planı", en: "typical intermediate floor", hint: "Tekrarlayan tipik kat; perspektif ve tipolojilerin ana kaynağıdır." },
+  { key: "son", name: "Son Kat Planı", en: "top floor", hint: "En üst yaşam katı; teras ve farklılaşan daireler." },
+  { key: "cati", name: "Çatı Katı Planı", en: "roof floor / penthouse", hint: "Çatı arası, çatı terası veya çekme kat." },
+];
+/* Perspektif, render ve tipolojiler için temel alınacak kat önceliği */
+const PLAN_PRIORITY = ["ara", "zemin", "son", "cati", "bodrum"];
+
+function primaryPlan() {
+  for (const k of PLAN_PRIORITY) if (state.inputs.plans[k]) return state.inputs.plans[k];
+  return null;
+}
+function anyPlan() { return primaryPlan() || state.inputs.plans.vaziyet || null; }
+
 const LS_KEY = "pafta_api_key";
 const LS_MODEL = "pafta_model";
 const LS_INFO = "pafta_info";
@@ -32,7 +50,7 @@ const MAX_IMG_DIM = 1568;
 
 const state = {
   step: 1,
-  inputs: { plan: null, kesit: null, logo: null }, // {dataUrl, name}
+  inputs: { plans: {}, kesit: null, logo: null }, // plans[key]/kesit/logo: {dataUrl, name}
   info: { projeAdi: "", konum: "", isveren: "", firma: "", olcek: "", arsa: "", insaat: "", kat: "", not: "" },
   palette: "toprak",
   style: "modern",
@@ -110,8 +128,8 @@ async function toJpegBase64(dataUrl, maxDim = MAX_IMG_DIM) {
    ============================================================ */
 
 function goTo(step) {
-  if (step > 1 && !state.inputs.plan) {
-    toast("Devam etmek için önce bir kat planı yükleyin.", true);
+  if (step > 1 && !anyPlan()) {
+    toast("Devam etmek için en az bir plan yükleyin.", true);
     goTo(1);
     return;
   }
@@ -150,21 +168,19 @@ document.addEventListener("click", (e) => {
    ADIM 1 — YÜKLEMELER
    ============================================================ */
 
-function bindUpload(key, dzId, fileId, nameId, rmId) {
-  const dz = $(dzId), input = $(fileId), nameEl = $(nameId), rm = $(rmId);
-
+function setupUpload({ dz, input, nameEl, rm, get, set }) {
   const setImage = async (file) => {
     if (!file || !file.type.startsWith("image/")) { toast("Lütfen bir görsel dosyası seçin.", true); return; }
     try {
       const dataUrl = await readFileAsDataUrl(file);
       await loadImage(dataUrl); // bozuk dosyayı erken yakala
-      state.inputs[key] = { dataUrl, name: file.name };
+      set({ dataUrl, name: file.name });
       renderUpload();
     } catch { toast("Görsel okunamadı — farklı bir dosya deneyin.", true); }
   };
 
   const renderUpload = () => {
-    const item = state.inputs[key];
+    const item = get();
     dz.classList.toggle("has-image", !!item);
     dz.querySelector("img.preview")?.remove();
     if (item) {
@@ -187,14 +203,49 @@ function bindUpload(key, dzId, fileId, nameId, rmId) {
   ["dragover", "dragenter"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("dragover"); }));
   ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("dragover"); }));
   dz.addEventListener("drop", (e) => setImage(e.dataTransfer.files[0]));
-  rm.addEventListener("click", (e) => { e.stopPropagation(); state.inputs[key] = null; renderUpload(); });
+  rm.addEventListener("click", (e) => { e.stopPropagation(); set(null); renderUpload(); });
 
   return renderUpload;
 }
 
-const renderPlanUpload = bindUpload("plan", "#dzPlan", "#filePlan", "#namePlan", "#rmPlan");
-const renderKesitUpload = bindUpload("kesit", "#dzKesit", "#fileKesit", "#nameKesit", "#rmKesit");
-const renderLogoUpload = bindUpload("logo", "#dzLogo", "#fileLogo", "#nameLogo", "#rmLogo");
+/* Altı plan türünün yükleme kartları dinamik kurulur */
+const planRenderers = {};
+function renderPlanCards() {
+  const grid = $("#planGrid");
+  grid.innerHTML = PLAN_TYPES.map((t) => `
+    <div class="upload-card">
+      <h3>${t.name}</h3>
+      <p class="hint">${t.hint}</p>
+      <div class="dropzone" id="dz-${t.key}" tabindex="0" role="button" aria-label="${t.name} yükle">
+        <div class="dz-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+          <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
+        </div>
+      </div>
+      <input type="file" id="file-${t.key}" accept="image/*" hidden>
+      <div class="file-actions">
+        <span class="file-name" id="name-${t.key}"></span>
+        <button class="link-danger" id="rm-${t.key}" type="button" hidden>Kaldır</button>
+      </div>
+    </div>`).join("");
+
+  for (const t of PLAN_TYPES) {
+    planRenderers[t.key] = setupUpload({
+      dz: $("#dz-" + t.key), input: $("#file-" + t.key), nameEl: $("#name-" + t.key), rm: $("#rm-" + t.key),
+      get: () => state.inputs.plans[t.key],
+      set: (v) => { state.inputs.plans[t.key] = v; },
+    });
+  }
+}
+
+const renderKesitUpload = setupUpload({
+  dz: $("#dzKesit"), input: $("#fileKesit"), nameEl: $("#nameKesit"), rm: $("#rmKesit"),
+  get: () => state.inputs.kesit, set: (v) => { state.inputs.kesit = v; },
+});
+const renderLogoUpload = setupUpload({
+  dz: $("#dzLogo"), input: $("#fileLogo"), nameEl: $("#nameLogo"), rm: $("#rmLogo"),
+  get: () => state.inputs.logo, set: (v) => { state.inputs.logo = v; },
+});
 
 /* ============================================================
    ADIM 2 — PROJE BİLGİLERİ, PALET, STİL, TİPOLOJİLER
@@ -330,14 +381,18 @@ function buildPrompt(item) {
   const kat = state.info.kat ? `The building has ${state.info.kat} floors. ` : "";
 
   switch (item.group) {
-    case "tefris":
-      return `You are an expert architectural illustrator. Redraw the attached schematic floor plan as a high-quality 2D presentation floor plan, strictly preserving its exact wall layout, room proportions and door/window positions. Draw cut walls as solid black poché, doors with quarter-circle swing symbols and windows with standard double-line symbols on the walls. Furnish every room appropriately (sofas, beds, dining table, kitchen counters, wardrobes, rugs, plants) in a neat top-down 2D style consistent with a ${s.en} interior. Color the floors room by room using a ${p.en} color scheme with subtle material textures. Pure white background, crisp thin linework, flat orthographic top-down view, no perspective distortion. Presentation-board quality.`;
+    case "tefris": {
+      const floorCtx = item.floorEn ? ` This drawing is the ${item.floorEn} plan of the building — furnish and label it accordingly.` : "";
+      return `You are an expert architectural illustrator. Redraw the attached schematic floor plan as a high-quality 2D presentation floor plan, strictly preserving its exact wall layout, room proportions and door/window positions. Draw cut walls as solid black poché, doors with quarter-circle swing symbols and windows with standard double-line symbols on the walls. Furnish every room appropriately (sofas, beds, dining table, kitchen counters, wardrobes, rugs, plants) in a neat top-down 2D style consistent with a ${s.en} interior. Color the floors room by room using a ${p.en} color scheme with subtle material textures. Pure white background, crisp thin linework, flat orthographic top-down view, no perspective distortion.${floorCtx} Presentation-board quality.`;
+    }
+    case "vaziyet":
+      return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
     case "perspektif":
       return `Using the attached floor plan as the exact layout reference, create a 3D cutaway floor plan visualization (bird's-eye axonometric view) of the same unit: walls raised and cut at about 1 meter height with white cut surfaces, interior fully furnished in a ${s.en} style, materials and colors following a ${p.en} palette, soft daylight and subtle shadows, pure white background, high-end archviz presentation quality. The room layout, doors and windows must match the source plan exactly.`;
     case "kesit":
       return `Redraw the attached schematic building section as a clean architectural presentation section drawing: cut structural elements (slabs, walls, foundations, ground) as solid black poché, interior spaces washed in light ${p.en} accent tones, simple furniture hints and a few flat human silhouettes for scale, level lines with subtle annotations, plain white background, thin precise linework, flat 2D vector style. Keep the number of floors and the overall proportions exactly as in the source. Presentation-board quality.`;
     case "render":
-      return `Based on the attached architectural drawings (${item.hasKesit ? "floor plan and schematic section" : "floor plan"}), imagine a plausible building massing and produce a photorealistic exterior architectural visualization: ${s.en} architecture, facade materials and accents following a ${p.en} palette, ${kat}golden-hour lighting, landscaped surroundings with trees, soft shadows and a few people for scale, eye-level camera with slight wide angle, high-end archviz render quality.`;
+      return `Based on the attached architectural drawings (floor plans, schematic section and/or site plan, as provided), imagine a plausible building massing and produce a photorealistic exterior architectural visualization: ${s.en} architecture, facade materials and accents following a ${p.en} palette, ${kat}golden-hour lighting, landscaped surroundings with trees, soft shadows and a few people for scale, eye-level camera with slight wide angle, high-end archviz render quality.`;
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
       const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}`;
@@ -370,26 +425,40 @@ function rebuildOutputs() {
     order.push(def.id);
   };
 
-  if (state.inputs.plan) {
-    put({ id: "tefris", group: "tefris", title: "Tefrişli Boyalı Plan", sub: "Ana kat planı", base: () => state.inputs.plan.dataUrl, sources: () => [state.inputs.plan.dataUrl] });
-    put({ id: "perspektif", group: "perspektif", title: "Perspektif Plan", sub: "3B kesit-perspektif", base: () => state.inputs.plan.dataUrl, sources: () => [state.inputs.plan.dataUrl] });
+  const plans = state.inputs.plans;
+
+  // Her yüklenen plan için ayrı üretim (vaziyet dahil)
+  for (const t of PLAN_TYPES) {
+    if (!plans[t.key]) continue;
+    const k = t.key;
+    if (k === "vaziyet") {
+      put({ id: "tefris-vaziyet", group: "vaziyet", title: "Vaziyet Planı", sub: "Sunum vaziyet planı", base: () => plans.vaziyet.dataUrl, sources: () => [plans.vaziyet.dataUrl] });
+    } else {
+      put({ id: "tefris-" + k, group: "tefris", floorEn: t.en, title: t.name, sub: "Tefrişli boyalı plan", base: () => plans[k].dataUrl, sources: () => [plans[k].dataUrl] });
+    }
+  }
+
+  const prim = primaryPlan();
+  if (prim) {
+    put({ id: "perspektif", group: "perspektif", title: "Perspektif Plan", sub: "3B kesit-perspektif", base: () => primaryPlan().dataUrl, sources: () => [primaryPlan().dataUrl] });
   }
   if (state.inputs.kesit) {
     put({ id: "kesit", group: "kesit", title: "Sunum Kesiti", sub: "Şematik kesitten", base: () => state.inputs.kesit.dataUrl, sources: () => [state.inputs.kesit.dataUrl] });
   }
-  if (state.inputs.plan) {
+  if (prim || plans.vaziyet) {
     put({
-      id: "render", group: "render", title: "Dış Mekân Render", sub: "Tahmini kütle", hasKesit: !!state.inputs.kesit,
-      base: () => (state.inputs.kesit || state.inputs.plan).dataUrl,
-      sources: () => [state.inputs.plan.dataUrl, state.inputs.kesit?.dataUrl].filter(Boolean),
+      id: "render", group: "render", title: "Dış Mekân Render", sub: "Tahmini kütle",
+      base: () => (state.inputs.kesit || primaryPlan() || plans.vaziyet).dataUrl,
+      sources: () => [primaryPlan()?.dataUrl, state.inputs.kesit?.dataUrl, plans.vaziyet?.dataUrl].filter(Boolean),
     });
   }
   for (const t of state.typologies) {
     if (!t.name && !t.image) continue;
+    if (!t.image && !prim) continue; // temel alınacak kat planı yoksa üretilemez
     put({
       id: "tip-" + t.id, group: "tip", title: `Tipoloji — ${t.name || "Adsız"}`, sub: [t.area && t.area + " m²", t.count && t.count + " adet"].filter(Boolean).join(" · ") || "Tip planı",
-      base: () => (t.image || state.inputs.plan).dataUrl,
-      sources: () => [(t.image || state.inputs.plan).dataUrl],
+      base: () => (t.image || primaryPlan()).dataUrl,
+      sources: () => [(t.image || primaryPlan()).dataUrl],
     });
   }
 
@@ -404,7 +473,7 @@ const STATUS_LABEL = { bekliyor: "Bekliyor", uretiliyor: "Üretiliyor…", hazir
 function renderOutputs() {
   const grid = $("#outputsGrid");
   if (!state.order.length) {
-    grid.innerHTML = `<p class="empty-note">Üretilecek çıktı yok — önce 1. adımda bir kat planı yükleyin.</p>`;
+    grid.innerHTML = `<p class="empty-note">Üretilecek çıktı yok — önce 1. adımda en az bir plan yükleyin.</p>`;
     return;
   }
   grid.innerHTML = state.order.map((id) => {
@@ -556,7 +625,7 @@ async function generateItem(id, silent = false) {
 
 $("#btnGenAll").addEventListener("click", async () => {
   if (state.busy) return;
-  if (!state.order.length) { toast("Üretilecek çıktı yok — önce kat planı yükleyin.", true); return; }
+  if (!state.order.length) { toast("Üretilecek çıktı yok — önce en az bir plan yükleyin.", true); return; }
   state.busy = true;
   const btn = $("#btnGenAll");
   btn.disabled = true;
@@ -604,7 +673,13 @@ function buildPageDefs() {
     if (!src) return;
     defs.push({ title, src, cap: opts.cap || "", scale: !!opts.scale, north: !!opts.north, preview: !!o?.preview, raw: !o });
   };
-  add("tefris", "Tefrişli Kat Planı", { fallback: state.inputs.plan?.dataUrl, cap: i.olcek, scale: true, north: true });
+  for (const t of PLAN_TYPES) {
+    add("tefris-" + t.key, t.name, {
+      fallback: state.inputs.plans[t.key]?.dataUrl,
+      cap: t.key === "vaziyet" ? "Vaziyet" : i.olcek,
+      scale: true, north: true,
+    });
+  }
   add("perspektif", "Perspektif Plan", { cap: "3B kesit-perspektif" });
   add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true });
   add("render", "Dış Mekân Görselleştirmesi", { cap: "Tahmini kütle çalışması" });
@@ -639,7 +714,12 @@ function renderPages() {
     ["Kat Sayısı", i.kat], ["Ölçek", i.olcek],
   ].filter(([, v]) => v);
 
-  const hero = outImg("render")?.src || outImg("tefris")?.src || state.inputs.plan?.dataUrl || null;
+  let heroTefris = null;
+  for (const k of [...PLAN_PRIORITY, "vaziyet"]) {
+    heroTefris = outImg("tefris-" + k)?.src;
+    if (heroTefris) break;
+  }
+  const hero = outImg("render")?.src || heroTefris || anyPlan()?.dataUrl || null;
 
   const coverHtml = `
   <section class="page page-cover">
@@ -680,7 +760,7 @@ function renderPages() {
   }).join("");
 
   wrap.innerHTML = coverHtml + contentHtml;
-  $("#pageCount").textContent = `${total} sayfa` + (defs.length ? "" : " — içerik sayfaları için 1. adımda plan yükleyip 3. adımda üretim yapın");
+  $("#pageCount").textContent = `${total} sayfa` + (defs.length ? "" : " — içerik sayfaları için 1. adımda en az bir plan yükleyip 3. adımda üretim yapın");
 }
 
 /* --- PDF / Yazdır --- */
@@ -780,6 +860,34 @@ const SAMPLE_KESIT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="880" he
 </g>
 </svg>`;
 
+const SAMPLE_VAZIYET_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="880" height="640" viewBox="0 0 880 640">
+<rect width="880" height="640" fill="#ffffff"/>
+<polygon points="90,70 800,60 820,500 70,520" fill="none" stroke="#111" stroke-width="3" stroke-dasharray="14 8"/>
+<rect x="60" y="540" width="780" height="50" fill="none" stroke="#111" stroke-width="2"/>
+<g stroke="#999" stroke-width="1.5"><line x1="80" y1="565" x2="820" y2="565" stroke-dasharray="20 14"/></g>
+<text x="430" y="620" font-family="Arial" font-size="16" fill="#555" text-anchor="middle">SOKAK</text>
+<g>
+  <rect x="250" y="160" width="380" height="240" fill="none" stroke="#111" stroke-width="5"/>
+  <line x1="250" y1="280" x2="630" y2="280" stroke="#111" stroke-width="2"/>
+  <line x1="440" y1="160" x2="440" y2="400" stroke="#111" stroke-width="2"/>
+  <text x="440" y="290" font-family="Arial" font-size="20" fill="#333" text-anchor="middle">BLOK A</text>
+</g>
+<rect x="250" y="430" width="160" height="60" fill="none" stroke="#111" stroke-width="2"/>
+<text x="330" y="465" font-family="Arial" font-size="13" fill="#555" text-anchor="middle">OTOPARK</text>
+<g fill="none" stroke="#111" stroke-width="1.6">
+  <circle cx="150" cy="160" r="26"/><circle cx="180" cy="240" r="20"/><circle cx="140" cy="330" r="24"/>
+  <circle cx="720" cy="150" r="24"/><circle cx="750" cy="240" r="20"/><circle cx="710" cy="340" r="26"/>
+  <circle cx="540" cy="470" r="20"/><circle cx="640" cy="460" r="24"/>
+</g>
+<path d="M410 400 L410 540" stroke="#111" stroke-width="1.6" stroke-dasharray="6 6"/>
+<g transform="translate(790,90)">
+  <circle cx="0" cy="0" r="22" fill="none" stroke="#111" stroke-width="2"/>
+  <path d="M0 -16 L8 12 L0 6 L-8 12 Z" fill="#111"/>
+  <text x="0" y="-28" font-family="Arial" font-size="13" text-anchor="middle" fill="#111">K</text>
+</g>
+<text x="110" y="600" font-family="Arial" font-size="15" fill="#555">VAZİYET PLANI — 1/500</text>
+</svg>`;
+
 const SAMPLE_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="150" viewBox="0 0 320 150">
 <rect x="18" y="25" width="100" height="100" rx="14" fill="#201c17"/>
 <path d="M43 100 L68 48 L93 100 Z" fill="none" stroke="#f7f4ee" stroke-width="7"/>
@@ -789,10 +897,14 @@ const SAMPLE_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="320" hei
 </svg>`;
 
 $("#btnSample").addEventListener("click", () => {
-  state.inputs.plan = { dataUrl: svgDataUrl(SAMPLE_PLAN_SVG), name: "ornek-kat-plani.svg" };
+  state.inputs.plans = {
+    vaziyet: { dataUrl: svgDataUrl(SAMPLE_VAZIYET_SVG), name: "ornek-vaziyet.svg" },
+    zemin: { dataUrl: svgDataUrl(SAMPLE_PLAN_SVG), name: "ornek-zemin-kat.svg" },
+  };
   state.inputs.kesit = { dataUrl: svgDataUrl(SAMPLE_KESIT_SVG), name: "ornek-kesit.svg" };
   state.inputs.logo = { dataUrl: svgDataUrl(SAMPLE_LOGO_SVG), name: "ornek-logo.svg" };
-  renderPlanUpload(); renderKesitUpload(); renderLogoUpload();
+  Object.values(planRenderers).forEach((r) => r());
+  renderKesitUpload(); renderLogoUpload();
 
   Object.assign(state.info, {
     projeAdi: "Vadi Evleri Konut Projesi", konum: "Urla, İzmir", isveren: "ABC Yapı A.Ş.",
@@ -816,12 +928,13 @@ $("#btnSample").addEventListener("click", () => {
    ============================================================ */
 
 window.addEventListener("beforeunload", (e) => {
-  if (state.inputs.plan || Object.values(state.outputs).some((o) => o.result)) {
+  if (anyPlan() || state.inputs.kesit || Object.values(state.outputs).some((o) => o.result)) {
     e.preventDefault();
     e.returnValue = "";
   }
 });
 
+renderPlanCards();
 bindInfo();
 bindApi();
 renderTypologies();

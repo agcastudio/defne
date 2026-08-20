@@ -18,9 +18,11 @@ Kurulum gerekmez. İki seçenek:
 
 ## Kullanım
 
-1. **Girdiler** — Kat planınızı (zorunlu), şematik kesitinizi ve firma logonuzu yükleyin.
-   Telefonla çekilmiş eskiz fotoğrafı da olur. Üst bardaki **"Örnek projeyi yükle"**
-   düğmesiyle hazır verilerle deneyebilirsiniz.
+1. **Girdiler** — Vaziyet, bodrum, zemin, ara, son ve çatı katı planlarından
+   elinizde olanları yükleyin (en az bir plan zorunlu); şematik kesit ve firma
+   logosu isteğe bağlıdır. Telefonla çekilmiş eskiz fotoğrafı da olur. Her
+   yüklenen plan için ayrı sunum paftası üretilir. Üst bardaki **"Örnek projeyi
+   yükle"** düğmesiyle hazır verilerle deneyebilirsiniz.
 2. **Proje Bilgileri** — Künyeyi doldurun ve konut tipolojilerini (ad, alan,
    adet, isteğe bağlı tip çizimi) tanımlayın. Renk paleti ve mimari stil sabit
    bir kurumsal ayarla arka planda uygulanır (`js/studio.js` içindeki
