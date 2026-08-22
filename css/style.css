@@ -272,6 +272,11 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 /* Yükleme kartları */
 .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .upload-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.plan-empty {
+  grid-column: 1 / -1; text-align: center; color: var(--ink-faint); font-size: 14px;
+  border: 2px dashed var(--line); border-radius: var(--radius-sm);
+  padding: 26px 20px; background: var(--paper);
+}
 .upload-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
 .upload-card h3 { font-size: 17px; display: flex; align-items: center; gap: 8px; }
 .upload-card h3 .req { color: var(--acc); }

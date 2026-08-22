@@ -50,6 +50,7 @@ const MAX_IMG_DIM = 1568;
 
 const state = {
   step: 1,
+  activePlans: new Set(), // seçilen plan türleri — yalnızca bunların yükleme alanı görünür
   inputs: { plans: {}, kesit: null, logo: null }, // plans[key]/kesit/logo: {dataUrl, name}
   info: { projeAdi: "", konum: "", isveren: "", firma: "", olcek: "", arsa: "", insaat: "", kat: "", not: "" },
   palette: "toprak",
@@ -208,11 +209,41 @@ function setupUpload({ dz, input, nameEl, rm, get, set }) {
   return renderUpload;
 }
 
-/* Altı plan türünün yükleme kartları dinamik kurulur */
-const planRenderers = {};
+/* Plan türleri çiplerle seçilir; yalnızca seçilenlerin yükleme kartı açılır */
 function renderPlanCards() {
+  const chipRow = $("#planTypeChips");
+  chipRow.innerHTML = PLAN_TYPES.map((t) => {
+    const on = state.activePlans.has(t.key);
+    return `
+    <label class="chip">
+      <input type="checkbox" data-plan="${t.key}" ${on ? "checked" : ""}>
+      <span>${on ? "✓" : "+"} ${t.name}</span>
+    </label>`;
+  }).join("");
+
+  $$("input[data-plan]", chipRow).forEach((inp) => {
+    inp.addEventListener("change", () => {
+      const k = inp.dataset.plan;
+      if (inp.checked) {
+        state.activePlans.add(k);
+      } else {
+        state.activePlans.delete(k);
+        if (state.inputs.plans[k]) {
+          state.inputs.plans[k] = null;
+          toast(`${PLAN_TYPES.find((t) => t.key === k).name} ve yüklenen görseli kaldırıldı.`);
+        }
+      }
+      renderPlanCards();
+    });
+  });
+
   const grid = $("#planGrid");
-  grid.innerHTML = PLAN_TYPES.map((t) => `
+  const active = PLAN_TYPES.filter((t) => state.activePlans.has(t.key));
+  if (!active.length) {
+    grid.innerHTML = `<p class="plan-empty">Henüz plan türü seçilmedi — yukarıdaki seçeneklerden elinizde olanları işaretleyin.</p>`;
+    return;
+  }
+  grid.innerHTML = active.map((t) => `
     <div class="upload-card">
       <h3>${t.name}</h3>
       <p class="hint">${t.hint}</p>
@@ -229,12 +260,13 @@ function renderPlanCards() {
       </div>
     </div>`).join("");
 
-  for (const t of PLAN_TYPES) {
-    planRenderers[t.key] = setupUpload({
+  for (const t of active) {
+    const render = setupUpload({
       dz: $("#dz-" + t.key), input: $("#file-" + t.key), nameEl: $("#name-" + t.key), rm: $("#rm-" + t.key),
       get: () => state.inputs.plans[t.key],
       set: (v) => { state.inputs.plans[t.key] = v; },
     });
+    render(); // daha önce yüklenmiş görsel varsa önizlemesini geri getir
   }
 }
 
@@ -897,13 +929,14 @@ const SAMPLE_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="320" hei
 </svg>`;
 
 $("#btnSample").addEventListener("click", () => {
+  state.activePlans = new Set(["vaziyet", "zemin"]);
   state.inputs.plans = {
     vaziyet: { dataUrl: svgDataUrl(SAMPLE_VAZIYET_SVG), name: "ornek-vaziyet.svg" },
     zemin: { dataUrl: svgDataUrl(SAMPLE_PLAN_SVG), name: "ornek-zemin-kat.svg" },
   };
   state.inputs.kesit = { dataUrl: svgDataUrl(SAMPLE_KESIT_SVG), name: "ornek-kesit.svg" };
   state.inputs.logo = { dataUrl: svgDataUrl(SAMPLE_LOGO_SVG), name: "ornek-logo.svg" };
-  Object.values(planRenderers).forEach((r) => r());
+  renderPlanCards();
   renderKesitUpload(); renderLogoUpload();
 
   Object.assign(state.info, {
