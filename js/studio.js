@@ -517,7 +517,7 @@ function rebuildOutputs() {
   const put = (def) => {
     const old = prev[def.id];
     next[def.id] = {
-      status: "bekliyor", result: null, error: null,
+      status: "bekliyor", result: null, error: null, enabled: true,
       ...old,
       ...def,
       // Promptlar sabittir; her kurulumda buildPrompt() şablonundan tazelenir.
@@ -582,20 +582,48 @@ function rebuildOutputs() {
 const STATUS_LABEL = { bekliyor: "Bekliyor", uretiliyor: "Üretiliyor…", hazir: "Hazır", onizleme: "Önizleme", hata: "Hata" };
 
 function renderOutputs() {
+  const pick = $("#pickList");
   const grid = $("#outputsGrid");
+
   if (!state.order.length) {
-    grid.innerHTML = `<p class="empty-note">Üretilecek çıktı yok — önce 1. adımda en az bir plan yükleyin.</p>`;
+    pick.innerHTML = `<p class="empty-note" style="padding:24px 12px; grid-column:1/-1">Üretilecek çıktı yok — önce 1. adımda en az bir plan yükleyin.</p>`;
+    grid.innerHTML = "";
     return;
   }
-  grid.innerHTML = state.order.map((id) => {
+
+  /* Kompakt seçim listesi: tüm olası çıktılar, işaretle/çıkar + tekil üretim */
+  pick.innerHTML = state.order.map((id) => {
+    const it = state.outputs[id];
+    const st = it.status !== "bekliyor" ? `<span class="status-chip ${it.status}">${STATUS_LABEL[it.status]}</span>` : "";
+    const busyRow = state.busy || it.status === "uretiliyor";
+    return `
+    <div class="pick-row ${it.enabled ? "" : "off"}" data-id="${id}">
+      <label class="check-box check-only pick-check" title="${it.enabled ? "Üretimden çıkar" : "Üretime ekle"}">
+        <input type="checkbox" data-enable ${it.enabled ? "checked" : ""}>
+      </label>
+      <div class="pick-info"><b>${esc(it.title)}</b><span>${esc(it.sub || "")}</span></div>
+      ${st}
+      <button class="btn btn-soft btn-sm" data-act="gen" type="button" ${!it.enabled || busyRow ? "disabled" : ""}>${it.result ? "↻" : "✦"} Üret</button>
+    </div>`;
+  }).join("");
+
+  $$(".pick-row", pick).forEach((row) => {
+    const it = state.outputs[row.dataset.id];
+    $("input[data-enable]", row).addEventListener("change", (e) => { it.enabled = e.target.checked; renderOutputs(); });
+    $("[data-act=gen]", row).addEventListener("click", () => generateItem(it.id));
+  });
+
+  /* Kartlar yalnızca üretimi başlamış/bitmiş görseller için oluşur */
+  const visible = state.order.filter((id) => state.outputs[id].status !== "bekliyor");
+  grid.innerHTML = visible.map((id) => {
     const it = state.outputs[id];
     const imgHtml = it.status === "uretiliyor"
       ? `<div class="placeholder"><span class="spinner"></span><span>Üretiliyor — bu birkaç saniye sürebilir…</span></div>`
       : it.result
         ? `<img src="${it.result}" alt="${esc(it.title)}">`
         : `<div class="placeholder">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-8 8"/></svg>
-             <span>Henüz üretilmedi</span>
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
+             <span>Üretilemedi</span>
            </div>`;
     return `
     <article class="out-card" data-id="${id}">
@@ -607,7 +635,7 @@ function renderOutputs() {
         </div>
         ${it.error ? `<div class="out-error">${esc(it.error)}</div>` : ""}
         <div class="out-actions">
-          <button class="btn btn-soft btn-sm" data-act="gen" type="button" ${state.busy ? "disabled" : ""}>${it.result ? "↻ Yeniden Üret" : "✦ Üret"}</button>
+          <button class="btn btn-soft btn-sm" data-act="gen" type="button" ${state.busy || !it.enabled ? "disabled" : ""}>${it.result ? "↻ Yeniden Üret" : "✦ Üret"}</button>
           ${it.result ? `<button class="btn btn-soft btn-sm" data-act="dl" type="button">↓ İndir</button>` : ""}
         </div>
       </div>
@@ -707,7 +735,7 @@ function hexToRgb(hex) {
 
 async function generateItem(id, silent = false) {
   const it = state.outputs[id];
-  if (!it || it.status === "uretiliyor") return;
+  if (!it || it.status === "uretiliyor" || !it.enabled) return;
   it.status = "uretiliyor";
   it.error = null;
   renderOutputs();
@@ -731,14 +759,16 @@ async function generateItem(id, silent = false) {
 $("#btnGenAll").addEventListener("click", async () => {
   if (state.busy) return;
   if (!state.order.length) { toast("Üretilecek çıktı yok — önce en az bir plan yükleyin.", true); return; }
+  const targets = state.order.filter((id) => state.outputs[id].enabled);
+  if (!targets.length) { toast("Üretim için işaretli görsel yok — listeden en az birini işaretleyin.", true); return; }
   state.busy = true;
   const btn = $("#btnGenAll");
   btn.disabled = true;
   const mode = hasAiAccess() ? "Gemini ile üretiliyor" : "Stilize önizleme oluşturuluyor";
   let i = 0, fail = 0;
-  for (const id of state.order) {
+  for (const id of targets) {
     i++;
-    setGenStatus(`${mode}: ${i}/${state.order.length} — ${state.outputs[id].title}`);
+    setGenStatus(`${mode}: ${i}/${targets.length} — ${state.outputs[id].title}`);
     await generateItem(id, true);
     if (state.outputs[id].status === "hata") fail++;
   }
