@@ -464,7 +464,12 @@ function bindApi() {
   sel.addEventListener("change", () => localStorage.setItem(LS_MODEL, modelName()));
 }
 
-/* --- Prompt şablonları (model için İngilizce) --- */
+/* ============================================================
+   PROMPT ŞABLONLARI — SABİT
+   Site kullanıcıları promptları göremez ve düzenleyemez.
+   Şablonları değiştirmek için YALNIZCA bu fonksiyonu düzenleyin;
+   palet/stil/kat değişkenleri otomatik yerleştirilir.
+   ============================================================ */
 
 function buildPrompt(item) {
   const p = PALETTES[state.palette];
@@ -511,13 +516,12 @@ function rebuildOutputs() {
 
   const put = (def) => {
     const old = prev[def.id];
-    const defaultPrompt = buildPrompt(def);
     next[def.id] = {
-      status: "bekliyor", result: null, error: null, showPrompt: false,
+      status: "bekliyor", result: null, error: null,
       ...old,
       ...def,
-      defaultPrompt,
-      prompt: old && old.prompt !== old.defaultPrompt ? old.prompt : defaultPrompt,
+      // Promptlar sabittir; her kurulumda buildPrompt() şablonundan tazelenir.
+      prompt: buildPrompt(def),
     };
     order.push(def.id);
   };
@@ -604,11 +608,7 @@ function renderOutputs() {
         ${it.error ? `<div class="out-error">${esc(it.error)}</div>` : ""}
         <div class="out-actions">
           <button class="btn btn-soft btn-sm" data-act="gen" type="button" ${state.busy ? "disabled" : ""}>${it.result ? "↻ Yeniden Üret" : "✦ Üret"}</button>
-          <button class="btn btn-soft btn-sm" data-act="prompt" type="button">${it.showPrompt ? "Promptu Gizle" : "Promptu Düzenle"}</button>
           ${it.result ? `<button class="btn btn-soft btn-sm" data-act="dl" type="button">↓ İndir</button>` : ""}
-        </div>
-        <div class="prompt-edit" ${it.showPrompt ? "" : "hidden"}>
-          <textarea data-act="prompt-text" spellcheck="false">${esc(it.prompt)}</textarea>
         </div>
       </div>
     </article>`;
@@ -617,8 +617,6 @@ function renderOutputs() {
   $$(".out-card", grid).forEach((card) => {
     const it = state.outputs[card.dataset.id];
     $("[data-act=gen]", card).addEventListener("click", () => generateItem(it.id));
-    $("[data-act=prompt]", card).addEventListener("click", () => { it.showPrompt = !it.showPrompt; renderOutputs(); });
-    $("[data-act=prompt-text]", card).addEventListener("input", (e) => { it.prompt = e.target.value; });
     $("[data-act=dl]", card)?.addEventListener("click", () => downloadDataUrl(it.result, `${slug(state.info.projeAdi)}-${it.id}`));
   });
 }
@@ -668,7 +666,7 @@ async function callGemini(promptText, dataUrls) {
   if (imgPart) return `data:${imgPart.inlineData.mimeType || "image/png"};base64,${imgPart.inlineData.data}`;
   const block = json?.promptFeedback?.blockReason || cand?.finishReason;
   const txt = cand?.content?.parts?.find((p) => p.text)?.text;
-  throw new Error("Model görsel döndürmedi" + (block ? ` (${block})` : "") + (txt ? ` — “${txt.slice(0, 140)}”` : "") + ". Promptu sadeleştirip yeniden deneyin.");
+  throw new Error("Model görsel döndürmedi" + (block ? ` (${block})` : "") + (txt ? ` — “${txt.slice(0, 140)}”` : "") + ". Yeniden deneyin.");
 }
 
 /* --- Anahtar yokken: palete uygun stilize önizleme (duotone) --- */

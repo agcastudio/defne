@@ -29,7 +29,9 @@ Kurulum gerekmez. İki seçenek:
    uygulanır (`js/studio.js` içindeki `state.palette` / `state.style`
    varsayılanları).
 3. **Üretim** — "Tümünü Üret" ile tüm görselleri oluşturun. Her kartta tek tek
-   yeniden üretme ve prompt (üretim metni) düzenleme imkânı vardır.
+   yeniden üretme imkânı vardır. Üretim promptları sabittir ve kullanıcıya
+   gösterilmez; şablonları değiştirmek için `js/studio.js` içindeki
+   `buildPrompt()` fonksiyonunu düzenleyin.
 4. **Sunum Dosyası** — Kapak + içerik sayfalarından oluşan çok sayfalı A3 yatay
    sunumu önizleyin; **PDF / Yazdır** ile tarayıcının yazdırma penceresinden
    *PDF olarak kaydet*'i seçin (kenar boşlukları: Yok, arka plan grafikleri: Açık).
