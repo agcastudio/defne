@@ -40,13 +40,14 @@ function primaryPlan() {
 }
 function anyPlan() { return primaryPlan() || state.inputs.plans.vaziyet || null; }
 
-/* Tipolojiler için standart kat seçenekleri (prompt'ta İngilizce karşılığı kullanılır) */
+/* Tipolojiler için standart kat seçenekleri — birden çok kat seçilebilir
+   (short: satırdaki çip etiketi, en: prompt'taki İngilizce karşılık) */
 const KAT_OPTIONS = [
-  { value: "Bodrum Kat", en: "the basement floor" },
-  { value: "Zemin Kat", en: "the ground floor" },
-  { value: "Ara Katlar", en: "the typical intermediate floors" },
-  { value: "Son Kat", en: "the top floor" },
-  { value: "Çatı Katı", en: "the roof floor" },
+  { value: "Bodrum Kat", short: "Bodrum", en: "the basement floor" },
+  { value: "Zemin Kat", short: "Zemin", en: "the ground floor" },
+  { value: "Ara Katlar", short: "Ara", en: "the typical intermediate floors" },
+  { value: "Son Kat", short: "Son", en: "the top floor" },
+  { value: "Çatı Katı", short: "Çatı", en: "the roof floor" },
 ];
 
 const LS_KEY = "pafta_api_key";
@@ -327,14 +328,18 @@ function addTypology(data = {}) {
     name: data.name || "",
     area: data.area || "",
     count: data.count || "",
-    kat: data.kat || "",
+    katlar: data.katlar || [], // seçilen standart katlar (birden çok olabilir)
   });
   renderTypologies();
 }
 
 /* Tipolojinin alan · adet · kat özet satırı */
 function typoMeta(t) {
-  return [t.area && t.area + " m²", t.count && t.count + " adet", t.kat && "Kat: " + t.kat].filter(Boolean).join(" · ");
+  return [
+    t.area && t.area + " m²",
+    t.count && t.count + " adet",
+    t.katlar?.length && "Kat: " + t.katlar.join(", "),
+  ].filter(Boolean).join(" · ");
 }
 
 function renderTypologies() {
@@ -344,20 +349,29 @@ function renderTypologies() {
       <div class="field"><label>Tip Adı</label><input data-f="name" type="text" placeholder="örn. 2+1 Tip A" value="${esc(t.name)}"></div>
       <div class="field"><label>Alan (m²)</label><input data-f="area" type="text" inputmode="decimal" placeholder="78" value="${esc(t.area)}"></div>
       <div class="field"><label>Adet</label><input data-f="count" type="text" inputmode="numeric" placeholder="12" value="${esc(t.count)}"></div>
-      <div class="field"><label>Kat</label>
-        <select data-f="kat">
-          <option value="">Seçiniz…</option>
-          ${KAT_OPTIONS.map((o) => `<option value="${o.value}" ${t.kat === o.value ? "selected" : ""}>${o.value}</option>`).join("")}
-        </select>
+      <div class="field field-katlar"><label>Kat(lar) — birden çok seçilebilir</label>
+        <div class="chip-row chip-row-sm">
+          ${KAT_OPTIONS.map((o) => `
+          <label class="chip chip-sm" title="${o.value}">
+            <input type="checkbox" data-kat="${o.value}" ${t.katlar.includes(o.value) ? "checked" : ""}>
+            <span>${o.short}</span>
+          </label>`).join("")}
+        </div>
       </div>
       <button class="link-danger" data-act="rm" type="button">Sil</button>
     </div>`).join("");
 
   $$(".typology-row", list).forEach((row) => {
     const t = state.typologies.find((x) => x.id === row.dataset.id);
-    $$("[data-f]", row).forEach((inp) => {
-      const ev = inp.tagName === "SELECT" ? "change" : "input";
-      inp.addEventListener(ev, () => { t[inp.dataset.f] = inp.value; });
+    $$("input[data-f]", row).forEach((inp) => {
+      inp.addEventListener("input", () => { t[inp.dataset.f] = inp.value; });
+    });
+    $$("input[data-kat]", row).forEach((cb) => {
+      cb.addEventListener("change", () => {
+        t.katlar = KAT_OPTIONS
+          .filter((o) => row.querySelector(`input[data-kat="${o.value}"]`).checked)
+          .map((o) => o.value);
+      });
     });
     $("[data-act=rm]", row).addEventListener("click", () => {
       state.typologies = state.typologies.filter((x) => x.id !== t.id);
@@ -434,8 +448,8 @@ function buildPrompt(item) {
       return `Based on the attached architectural drawings (floor plans, schematic section and/or site plan, as provided), imagine a plausible building massing and produce a photorealistic exterior architectural visualization: ${s.en} architecture, facade materials and accents following a ${p.en} palette, ${kat}golden-hour lighting, landscaped surroundings with trees, soft shadows and a few people for scale, eye-level camera with slight wide angle, high-end archviz render quality.`;
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
-      const katEn = KAT_OPTIONS.find((o) => o.value === t.kat)?.en;
-      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}${katEn ? `, located on ${katEn}` : ""}`;
+      const katEnList = (t.katlar || []).map((v) => KAT_OPTIONS.find((o) => o.value === v)?.en).filter(Boolean);
+      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}${katEnList.length ? `, located on ${katEnList.join(" and ")}` : ""}`;
       return `From the attached overall floor plan, isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view. Presentation-board quality.`;
     }
   }
@@ -974,9 +988,9 @@ $("#btnSample").addEventListener("click", () => {
   persistInfo();
 
   state.typologies = [];
-  addTypology({ name: "1+1 Tip A", area: "52", count: "12", kat: "Zemin Kat" });
-  addTypology({ name: "2+1 Tip B", area: "78", count: "18", kat: "Ara Katlar" });
-  addTypology({ name: "3+1 Tip C", area: "104", count: "6", kat: "Son Kat" });
+  addTypology({ name: "1+1 Tip A", area: "52", count: "12", katlar: ["Zemin Kat", "Ara Katlar"] });
+  addTypology({ name: "2+1 Tip B", area: "78", count: "18", katlar: ["Ara Katlar"] });
+  addTypology({ name: "3+1 Tip C", area: "104", count: "6", katlar: ["Son Kat", "Çatı Katı"] });
 
   toast("Örnek proje yüklendi — adımları gezerek deneyebilirsiniz.");
   goTo(1);
