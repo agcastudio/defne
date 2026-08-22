@@ -447,7 +447,7 @@ function bindApi() {
   if (EMBEDDED_KEY || PROXY_URL) {
     $(".api-panel").style.display = "none";
     const sub = $('.step-panel[data-step="3"] .panel-head p');
-    if (sub) sub.innerHTML = "Görseller Google'ın <b>Nano Banana Pro</b> (Gemini 3 Pro Image) modeliyle üretilir. Bağlantı site tarafından yapılandırıldı — doğrudan “Tümünü Üret” diyebilirsiniz.";
+    if (sub) sub.innerHTML = "Görseller Google'ın <b>Nano Banana Pro</b> (Gemini 3 Pro Image) modeliyle üretilir. İstediğiniz görseli tek tek ürettirebilir ya da doğrudan “Tümünü Üret” diyebilirsiniz.";
     return;
   }
   $("#fApiKey").value = localStorage.getItem(LS_KEY) || "";
