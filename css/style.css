@@ -343,22 +343,32 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 .chip input:checked + span { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .chip:hover span { border-color: var(--ink-soft); }
 
-/* Tipoloji satırları */
+/* İki katmanlı tipoloji kartı: üstte kimlik alanları, altta kat şeridi */
 .typology-row {
-  display: grid; grid-template-columns: 1.05fr .5fr .4fr auto 1.55fr auto; gap: 12px;
-  align-items: end; padding: 14px; border: 1px solid var(--line);
+  padding: 16px 18px; border: 1px solid var(--line);
   border-radius: var(--radius-sm); background: var(--paper); margin-bottom: 12px;
 }
-.typology-row .field-katlar { min-width: 0; }
+.typo-grid {
+  display: grid; grid-template-columns: 1.6fr .7fr .7fr .55fr auto auto;
+  gap: 14px; align-items: end;
+}
+.typo-grid .link-danger { margin-bottom: 8px; }
+.typo-floors {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 13px; border-top: 1px dashed var(--line);
+}
+.floors-label {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--ink-soft); text-transform: uppercase; flex: none;
+}
 .check-box {
-  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-  padding: 9px 13px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--white); font-size: 13.5px; font-weight: 600; color: var(--ink-soft);
-  white-space: nowrap; transition: border-color .15s ease;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  padding: 10px 15px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--white); transition: border-color .15s ease;
 }
 .check-box:hover { border-color: var(--ink-soft); }
-.check-box input { width: 16px; height: 16px; accent-color: var(--acc); cursor: pointer; }
-.check-box:has(input:checked) { border-color: var(--ink); color: var(--ink); background: var(--acc-soft); }
+.check-box input { width: 17px; height: 17px; accent-color: var(--acc); cursor: pointer; display: block; }
+.check-box:has(input:checked) { border-color: var(--ink); background: var(--acc-soft); }
 .chip-row-sm { gap: 6px; }
 .chip-sm span { padding: 8px 13px; font-size: 12.5px; background: var(--white); }
 
@@ -565,8 +575,8 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 @media (max-width: 640px) {
   .cards, .upload-grid, .outputs-grid, .form-grid, .palette-grid, .api-panel .form-grid { grid-template-columns: 1fr; }
   .field.span2, .field.span3 { grid-column: span 1; }
-  .typology-row { grid-template-columns: 1fr 1fr; }
-  .typology-row .field-katlar { grid-column: 1 / -1; }
+  .typo-grid { grid-template-columns: 1fr 1fr; }
+  .typo-grid .typo-name { grid-column: 1 / -1; }
   .topnav { display: none; }
   .cta { padding: 40px 28px; }
 }

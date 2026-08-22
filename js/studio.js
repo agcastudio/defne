@@ -62,7 +62,7 @@ const state = {
   step: 1,
   activePlans: new Set(), // seçilen plan türleri — yalnızca bunların yükleme alanı görünür
   inputs: { plans: {}, kesit: null, logo: null }, // plans[key]/kesit/logo: {dataUrl, name}
-  info: { projeAdi: "", konum: "", isveren: "", firma: "", olcek: "", arsa: "", insaat: "", kat: "", not: "", kesitNot: "" },
+  info: { projeAdi: "", konum: "", isveren: "", firma: "", olcek: "", arsa: "", insaat: "", daireAlan: "", ortakAlan: "", kat: "", not: "", kesitNot: "" },
   palette: "toprak",
   style: "modern",
   typologies: [], // {id, name, area, count, image:{dataUrl,name}|null}
@@ -295,8 +295,8 @@ const renderLogoUpload = setupUpload({
 
 const INFO_FIELDS = {
   projeAdi: "#fProjeAdi", konum: "#fKonum", isveren: "#fIsveren", firma: "#fFirma",
-  olcek: "#fOlcek", arsa: "#fArsa", insaat: "#fInsaat", kat: "#fKat", not: "#fNot",
-  kesitNot: "#fKesitNot",
+  olcek: "#fOlcek", arsa: "#fArsa", insaat: "#fInsaat", daireAlan: "#fDaire", ortakAlan: "#fOrtak",
+  kat: "#fKat", not: "#fNot", kesitNot: "#fKesitNot",
 };
 
 function bindInfo() {
@@ -326,7 +326,8 @@ function addTypology(data = {}) {
   state.typologies.push({
     id: "t" + typoSeq++,
     name: data.name || "",
-    area: data.area || "",
+    netArea: data.netArea || "",
+    brutArea: data.brutArea || "",
     count: data.count || "",
     katlar: data.katlar || [], // seçilen standart katlar (birden çok olabilir)
     dubleks: data.dubleks || false,
@@ -337,7 +338,8 @@ function addTypology(data = {}) {
 /* Tipolojinin alan · adet · dubleks · kat özet satırı */
 function typoMeta(t) {
   return [
-    t.area && t.area + " m²",
+    t.netArea && "Net " + t.netArea + " m²",
+    t.brutArea && "Brüt " + t.brutArea + " m²",
     t.count && t.count + " adet",
     t.dubleks && "Dubleks",
     t.katlar?.length && "Kat: " + t.katlar.join(", "),
@@ -364,16 +366,20 @@ function renderTypologies() {
   const list = $("#typoList");
   list.innerHTML = state.typologies.map((t) => `
     <div class="typology-row" data-id="${t.id}">
-      <div class="field"><label>Tip Adı</label><input data-f="name" type="text" placeholder="örn. 2+1 Tip A" value="${esc(t.name)}"></div>
-      <div class="field"><label>Alan (m²)</label><input data-f="area" type="text" inputmode="decimal" placeholder="78" value="${esc(t.area)}"></div>
-      <div class="field"><label>Adet</label><input data-f="count" type="text" inputmode="numeric" placeholder="12" value="${esc(t.count)}"></div>
-      <div class="field field-dubleks"><label>Dubleks</label>
-        <label class="check-box" title="Çift katlı (dubleks) daire">
-          <input type="checkbox" data-dubleks ${t.dubleks ? "checked" : ""}>
-          <span>Çift katlı</span>
-        </label>
+      <div class="typo-grid">
+        <div class="field typo-name"><label>Tip Adı</label><input data-f="name" type="text" placeholder="örn. 2+1 Tip A" value="${esc(t.name)}"></div>
+        <div class="field"><label>Net Alan (m²)</label><input data-f="netArea" type="text" inputmode="decimal" placeholder="68" value="${esc(t.netArea)}"></div>
+        <div class="field"><label>Brüt Alan (m²)</label><input data-f="brutArea" type="text" inputmode="decimal" placeholder="78" value="${esc(t.brutArea)}"></div>
+        <div class="field"><label>Adet</label><input data-f="count" type="text" inputmode="numeric" placeholder="12" value="${esc(t.count)}"></div>
+        <div class="field field-dubleks"><label>Dubleks</label>
+          <label class="check-box check-only" title="Çift katlı (dubleks) daire">
+            <input type="checkbox" data-dubleks ${t.dubleks ? "checked" : ""}>
+          </label>
+        </div>
+        <button class="link-danger" data-act="rm" type="button">Sil</button>
       </div>
-      <div class="field field-katlar"><label>Kat(lar) — birden çok seçilebilir</label>
+      <div class="typo-floors">
+        <span class="floors-label">Kat(lar)</span>
         <div class="chip-row chip-row-sm">
           ${KAT_OPTIONS.map((o) => `
           <label class="chip chip-sm" title="${o.value}">
@@ -382,7 +388,6 @@ function renderTypologies() {
           </label>`).join("")}
         </div>
       </div>
-      <button class="link-danger" data-act="rm" type="button">Sil</button>
     </div>`).join("");
 
   $$(".typology-row", list).forEach((row) => {
@@ -482,7 +487,10 @@ function buildPrompt(item) {
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
       const katEnList = (t.katlar || []).map((v) => KAT_OPTIONS.find((o) => o.value === v)?.en).filter(Boolean);
-      const unit = `${t.name || "the unit"}${t.dubleks ? " (duplex)" : ""}${t.area ? `, approximately ${t.area} m²` : ""}${katEnList.length ? `, located on ${katEnList.join(" and ")}` : ""}`;
+      const alanTxt = t.netArea
+        ? `, approximately ${t.netArea} m² net area${t.brutArea ? ` (${t.brutArea} m² gross)` : ""}`
+        : (t.brutArea ? `, approximately ${t.brutArea} m² gross area` : "");
+      const unit = `${t.name || "the unit"}${t.dubleks ? " (duplex)" : ""}${alanTxt}${katEnList.length ? `, located on ${katEnList.join(" and ")}` : ""}`;
       const duplexTxt = t.dubleks
         ? " This is a DUPLEX unit spanning two levels connected by an internal staircase: draw BOTH levels side by side as two separate plans (lower level on the left, upper level on the right), each fully furnished, with the connecting staircase clearly shown in the same position on both levels."
         : "";
@@ -809,6 +817,8 @@ function renderPages() {
   const metaRows = [
     ["Konum", i.konum], ["İşveren", i.isveren], ["Mimari Ofis", i.firma],
     ["Arsa Alanı", i.arsa && i.arsa + " m²"], ["İnşaat Alanı", i.insaat && i.insaat + " m²"],
+    ["Toplam Daire Alanı", i.daireAlan && i.daireAlan + " m²"],
+    ["Toplam Ortak Alan", i.ortakAlan && i.ortakAlan + " m²"],
     ["Kat Sayısı", i.kat], ["Ölçek", i.olcek],
   ].filter(([, v]) => v);
 
@@ -1016,7 +1026,8 @@ $("#btnSample").addEventListener("click", () => {
 
   Object.assign(state.info, {
     projeAdi: "Vadi Evleri Konut Projesi", konum: "Urla, İzmir", isveren: "ABC Yapı A.Ş.",
-    firma: "Atölye A Mimarlık", olcek: "1/100", arsa: "2450", insaat: "6800", kat: "Zemin + 3",
+    firma: "Atölye A Mimarlık", olcek: "1/100", arsa: "2450", insaat: "6800",
+    daireAlan: "6500", ortakAlan: "300", kat: "Zemin + 3",
     not: "Zemin katta ticari birimler; üst katlarda 1+1, 2+1 ve 3+1 konut tipolojileri yer almaktadır.",
     kesitNot: "Müteahhit payı: %50\nMal sahibi payı: %50\n\nToplam inşaat alanı: 6800 m²\nToplam ortak alan: 300 m²\n\nZemin kat yüksekliği: 4.50 m\nNormal kat yüksekliği: 3.00 m\nÇatı mahyası: +12.40",
   });
@@ -1024,9 +1035,9 @@ $("#btnSample").addEventListener("click", () => {
   persistInfo();
 
   state.typologies = [];
-  addTypology({ name: "1+1 Tip A", area: "52", count: "12", katlar: ["Zemin Kat", "Ara Katlar"] });
-  addTypology({ name: "2+1 Tip B", area: "78", count: "18", katlar: ["Ara Katlar"] });
-  addTypology({ name: "3+1 Tip C", area: "104", count: "6", katlar: ["Son Kat", "Çatı Katı"], dubleks: true });
+  addTypology({ name: "1+1 Tip A", netArea: "45", brutArea: "52", count: "12", katlar: ["Zemin Kat", "Ara Katlar"] });
+  addTypology({ name: "2+1 Tip B", netArea: "68", brutArea: "78", count: "18", katlar: ["Ara Katlar"] });
+  addTypology({ name: "3+1 Tip C", netArea: "89", brutArea: "104", count: "6", katlar: ["Son Kat", "Çatı Katı"], dubleks: true });
 
   toast("Örnek proje yüklendi — adımları gezerek deneyebilirsiniz.");
   goTo(1);
