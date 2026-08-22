@@ -479,7 +479,7 @@ function buildPrompt(item) {
     case "vaziyet":
       return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
     case "perspektif":
-      return `Using the attached floor plan as the exact layout reference, create a 3D cutaway floor plan visualization (bird's-eye axonometric view) of the same unit: walls raised and cut at about 1 meter height with white cut surfaces, interior fully furnished in a ${s.en} style, materials and colors following a ${p.en} palette, soft daylight and subtle shadows, pure white background, high-end archviz presentation quality. The room layout, doors and windows must match the source plan exactly.`;
+      return `Using the first attached image — the schematic GROUND FLOOR plan — as the exact layout reference, create a 3D cutaway floor plan visualization (bird's-eye axonometric view) of that ground floor: walls raised and cut at about 1 meter height with white cut surfaces, interior fully furnished in a ${s.en} style, materials and colors following a ${p.en} palette, soft daylight and subtle shadows, pure white background, high-end archviz presentation quality. If a second image is attached, it is the colored and furnished 2D presentation version of the SAME ground floor plan: treat it as the primary reference and match its room colors, furniture placement and material choices exactly, so the perspective reads as the 3D counterpart of that drawing. The room layout, doors and windows must match the source plan exactly.`;
     case "kesit":
       return `Redraw the attached schematic building section as a clean architectural presentation section drawing: cut structural elements (slabs, walls, foundations, ground) as solid black poché, interior spaces washed in light ${p.en} accent tones, simple furniture hints and a few flat human silhouettes for scale, level lines with subtle annotations, plain white background, thin precise linework, flat 2D vector style. Keep the number of floors and the overall proportions exactly as in the source. Presentation-board quality.`;
     case "render":
@@ -534,8 +534,19 @@ function rebuildOutputs() {
   }
 
   const prim = primaryPlan();
-  if (prim) {
-    put({ id: "perspektif", group: "perspektif", title: "Perspektif Plan", sub: "3B kesit-perspektif", base: () => primaryPlan().dataUrl, sources: () => [primaryPlan().dataUrl] });
+  // Perspektif plan zemin kata bağlıdır; zemin kat boyaması üretilmişse
+  // ikinci referans görsel olarak isteğe eklenir (renk/tefriş birebir aktarılsın diye).
+  if (plans.zemin) {
+    put({
+      id: "perspektif", group: "perspektif", title: "Zemin Kat Perspektif Planı", sub: "Zemin kat 3B kesit-perspektif",
+      base: () => state.inputs.plans.zemin.dataUrl,
+      sources: () => {
+        const src = [state.inputs.plans.zemin.dataUrl];
+        const boyama = state.outputs["tefris-zemin"];
+        if (boyama?.status === "hazir" && boyama.result) src.push(boyama.result);
+        return src;
+      },
+    });
   }
   if (state.inputs.kesit) {
     put({ id: "kesit", group: "kesit", title: "Sunum Kesiti", sub: "Şematik kesitten", base: () => state.inputs.kesit.dataUrl, sources: () => [state.inputs.kesit.dataUrl] });
@@ -787,7 +798,7 @@ function buildPageDefs() {
       scale: true, north: true,
     });
   }
-  add("perspektif", "Perspektif Plan", { cap: "3B kesit-perspektif" });
+  add("perspektif", "Zemin Kat Perspektif Planı", { cap: "3B kesit-perspektif" });
   add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true, note: i.kesitNot });
   add("render", "Dış Mekân Görselleştirmesi", { cap: "Tahmini kütle çalışması" });
   for (const t of state.typologies) {
