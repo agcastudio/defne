@@ -40,6 +40,15 @@ function primaryPlan() {
 }
 function anyPlan() { return primaryPlan() || state.inputs.plans.vaziyet || null; }
 
+/* Tipolojiler için standart kat seçenekleri (prompt'ta İngilizce karşılığı kullanılır) */
+const KAT_OPTIONS = [
+  { value: "Bodrum Kat", en: "the basement floor" },
+  { value: "Zemin Kat", en: "the ground floor" },
+  { value: "Ara Katlar", en: "the typical intermediate floors" },
+  { value: "Son Kat", en: "the top floor" },
+  { value: "Çatı Katı", en: "the roof floor" },
+];
+
 const LS_KEY = "pafta_api_key";
 const LS_MODEL = "pafta_model";
 const LS_INFO = "pafta_info";
@@ -319,7 +328,6 @@ function addTypology(data = {}) {
     area: data.area || "",
     count: data.count || "",
     kat: data.kat || "",
-    image: data.image || null,
   });
   renderTypologies();
 }
@@ -336,29 +344,20 @@ function renderTypologies() {
       <div class="field"><label>Tip Adı</label><input data-f="name" type="text" placeholder="örn. 2+1 Tip A" value="${esc(t.name)}"></div>
       <div class="field"><label>Alan (m²)</label><input data-f="area" type="text" inputmode="decimal" placeholder="78" value="${esc(t.area)}"></div>
       <div class="field"><label>Adet</label><input data-f="count" type="text" inputmode="numeric" placeholder="12" value="${esc(t.count)}"></div>
-      <div class="field"><label>Kat(lar)</label><input data-f="kat" type="text" placeholder="örn. 1–4 / Zemin" value="${esc(t.kat)}"></div>
-      <label class="mini-upload" title="Tipin kendi plan çizimi (isteğe bağlı)">
-        ${t.image ? `<img src="${t.image.dataUrl}" alt="">` : "⬆"}
-        <span>${t.image ? "Çizim yüklendi" : "Tip çizimi (ops.)"}</span>
-        <input type="file" accept="image/*" hidden>
-      </label>
+      <div class="field"><label>Kat</label>
+        <select data-f="kat">
+          <option value="">Seçiniz…</option>
+          ${KAT_OPTIONS.map((o) => `<option value="${o.value}" ${t.kat === o.value ? "selected" : ""}>${o.value}</option>`).join("")}
+        </select>
+      </div>
       <button class="link-danger" data-act="rm" type="button">Sil</button>
     </div>`).join("");
 
   $$(".typology-row", list).forEach((row) => {
     const t = state.typologies.find((x) => x.id === row.dataset.id);
-    $$("input[data-f]", row).forEach((inp) => {
-      inp.addEventListener("input", () => { t[inp.dataset.f] = inp.value; });
-    });
-    $("input[type=file]", row).addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const dataUrl = await readFileAsDataUrl(file);
-        await loadImage(dataUrl);
-        t.image = { dataUrl, name: file.name };
-        renderTypologies();
-      } catch { toast("Görsel okunamadı.", true); }
+    $$("[data-f]", row).forEach((inp) => {
+      const ev = inp.tagName === "SELECT" ? "change" : "input";
+      inp.addEventListener(ev, () => { t[inp.dataset.f] = inp.value; });
     });
     $("[data-act=rm]", row).addEventListener("click", () => {
       state.typologies = state.typologies.filter((x) => x.id !== t.id);
@@ -435,10 +434,8 @@ function buildPrompt(item) {
       return `Based on the attached architectural drawings (floor plans, schematic section and/or site plan, as provided), imagine a plausible building massing and produce a photorealistic exterior architectural visualization: ${s.en} architecture, facade materials and accents following a ${p.en} palette, ${kat}golden-hour lighting, landscaped surroundings with trees, soft shadows and a few people for scale, eye-level camera with slight wide angle, high-end archviz render quality.`;
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
-      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}${t.kat ? `, located on floor(s) ${t.kat}` : ""}`;
-      if (t.image) {
-        return `Redraw the attached schematic unit plan of "${unit}" as a high-quality 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view. Keep the layout exactly as in the source. Presentation-board quality.`;
-      }
+      const katEn = KAT_OPTIONS.find((o) => o.value === t.kat)?.en;
+      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}${katEn ? `, located on ${katEn}` : ""}`;
       return `From the attached overall floor plan, isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view. Presentation-board quality.`;
     }
   }
@@ -493,12 +490,11 @@ function rebuildOutputs() {
     });
   }
   for (const t of state.typologies) {
-    if (!t.name && !t.image) continue;
-    if (!t.image && !prim) continue; // temel alınacak kat planı yoksa üretilemez
+    if (!t.name || !prim) continue; // tip planı ana kat planından türetilir
     put({
-      id: "tip-" + t.id, group: "tip", title: `Tipoloji — ${t.name || "Adsız"}`, sub: typoMeta(t) || "Tip planı",
-      base: () => (t.image || primaryPlan()).dataUrl,
-      sources: () => [(t.image || primaryPlan()).dataUrl],
+      id: "tip-" + t.id, group: "tip", title: `Tipoloji — ${t.name}`, sub: typoMeta(t) || "Tip planı",
+      base: () => primaryPlan().dataUrl,
+      sources: () => [primaryPlan().dataUrl],
     });
   }
 
@@ -737,9 +733,8 @@ function buildPageDefs() {
   add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true, note: i.kesitNot });
   add("render", "Dış Mekân Görselleştirmesi", { cap: "Tahmini kütle çalışması" });
   for (const t of state.typologies) {
-    if (!t.name && !t.image) continue;
-    add("tip-" + t.id, `Tipoloji — ${t.name || "Adsız"}`, {
-      fallback: t.image?.dataUrl,
+    if (!t.name) continue;
+    add("tip-" + t.id, `Tipoloji — ${t.name}`, {
       cap: typoMeta(t),
       scale: true, north: true,
     });
@@ -979,9 +974,9 @@ $("#btnSample").addEventListener("click", () => {
   persistInfo();
 
   state.typologies = [];
-  addTypology({ name: "1+1 Tip A", area: "52", count: "12", kat: "1–2" });
-  addTypology({ name: "2+1 Tip B", area: "78", count: "18", kat: "1–3" });
-  addTypology({ name: "3+1 Tip C", area: "104", count: "6", kat: "3" });
+  addTypology({ name: "1+1 Tip A", area: "52", count: "12", kat: "Zemin Kat" });
+  addTypology({ name: "2+1 Tip B", area: "78", count: "18", kat: "Ara Katlar" });
+  addTypology({ name: "3+1 Tip C", area: "104", count: "6", kat: "Son Kat" });
 
   toast("Örnek proje yüklendi — adımları gezerek deneyebilirsiniz.");
   goTo(1);
