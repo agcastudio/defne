@@ -318,9 +318,15 @@ function addTypology(data = {}) {
     name: data.name || "",
     area: data.area || "",
     count: data.count || "",
+    kat: data.kat || "",
     image: data.image || null,
   });
   renderTypologies();
+}
+
+/* Tipolojinin alan · adet · kat özet satırı */
+function typoMeta(t) {
+  return [t.area && t.area + " m²", t.count && t.count + " adet", t.kat && "Kat: " + t.kat].filter(Boolean).join(" · ");
 }
 
 function renderTypologies() {
@@ -330,6 +336,7 @@ function renderTypologies() {
       <div class="field"><label>Tip Adı</label><input data-f="name" type="text" placeholder="örn. 2+1 Tip A" value="${esc(t.name)}"></div>
       <div class="field"><label>Alan (m²)</label><input data-f="area" type="text" inputmode="decimal" placeholder="78" value="${esc(t.area)}"></div>
       <div class="field"><label>Adet</label><input data-f="count" type="text" inputmode="numeric" placeholder="12" value="${esc(t.count)}"></div>
+      <div class="field"><label>Kat(lar)</label><input data-f="kat" type="text" placeholder="örn. 1–4 / Zemin" value="${esc(t.kat)}"></div>
       <label class="mini-upload" title="Tipin kendi plan çizimi (isteğe bağlı)">
         ${t.image ? `<img src="${t.image.dataUrl}" alt="">` : "⬆"}
         <span>${t.image ? "Çizim yüklendi" : "Tip çizimi (ops.)"}</span>
@@ -428,7 +435,7 @@ function buildPrompt(item) {
       return `Based on the attached architectural drawings (floor plans, schematic section and/or site plan, as provided), imagine a plausible building massing and produce a photorealistic exterior architectural visualization: ${s.en} architecture, facade materials and accents following a ${p.en} palette, ${kat}golden-hour lighting, landscaped surroundings with trees, soft shadows and a few people for scale, eye-level camera with slight wide angle, high-end archviz render quality.`;
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
-      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}`;
+      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}${t.kat ? `, located on floor(s) ${t.kat}` : ""}`;
       if (t.image) {
         return `Redraw the attached schematic unit plan of "${unit}" as a high-quality 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view. Keep the layout exactly as in the source. Presentation-board quality.`;
       }
@@ -489,7 +496,7 @@ function rebuildOutputs() {
     if (!t.name && !t.image) continue;
     if (!t.image && !prim) continue; // temel alınacak kat planı yoksa üretilemez
     put({
-      id: "tip-" + t.id, group: "tip", title: `Tipoloji — ${t.name || "Adsız"}`, sub: [t.area && t.area + " m²", t.count && t.count + " adet"].filter(Boolean).join(" · ") || "Tip planı",
+      id: "tip-" + t.id, group: "tip", title: `Tipoloji — ${t.name || "Adsız"}`, sub: typoMeta(t) || "Tip planı",
       base: () => (t.image || primaryPlan()).dataUrl,
       sources: () => [(t.image || primaryPlan()).dataUrl],
     });
@@ -733,7 +740,7 @@ function buildPageDefs() {
     if (!t.name && !t.image) continue;
     add("tip-" + t.id, `Tipoloji — ${t.name || "Adsız"}`, {
       fallback: t.image?.dataUrl,
-      cap: [t.area && t.area + " m²", t.count && t.count + " adet"].filter(Boolean).join(" · "),
+      cap: typoMeta(t),
       scale: true, north: true,
     });
   }
@@ -972,9 +979,9 @@ $("#btnSample").addEventListener("click", () => {
   persistInfo();
 
   state.typologies = [];
-  addTypology({ name: "1+1 Tip A", area: "52", count: "12" });
-  addTypology({ name: "2+1 Tip B", area: "78", count: "18" });
-  addTypology({ name: "3+1 Tip C", area: "104", count: "6" });
+  addTypology({ name: "1+1 Tip A", area: "52", count: "12", kat: "1–2" });
+  addTypology({ name: "2+1 Tip B", area: "78", count: "18", kat: "1–3" });
+  addTypology({ name: "3+1 Tip C", area: "104", count: "6", kat: "3" });
 
   toast("Örnek proje yüklendi — adımları gezerek deneyebilirsiniz.");
   goTo(1);

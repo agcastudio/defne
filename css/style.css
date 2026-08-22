@@ -345,7 +345,7 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 
 /* Tipoloji satırları */
 .typology-row {
-  display: grid; grid-template-columns: 1.4fr .7fr .6fr auto auto; gap: 12px;
+  display: grid; grid-template-columns: 1.3fr .55fr .45fr .75fr auto auto; gap: 12px;
   align-items: end; padding: 14px; border: 1px solid var(--line);
   border-radius: var(--radius-sm); background: var(--paper); margin-bottom: 12px;
 }
