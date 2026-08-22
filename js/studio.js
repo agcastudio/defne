@@ -52,7 +52,7 @@ const state = {
   step: 1,
   activePlans: new Set(), // seçilen plan türleri — yalnızca bunların yükleme alanı görünür
   inputs: { plans: {}, kesit: null, logo: null }, // plans[key]/kesit/logo: {dataUrl, name}
-  info: { projeAdi: "", konum: "", isveren: "", firma: "", olcek: "", arsa: "", insaat: "", kat: "", not: "" },
+  info: { projeAdi: "", konum: "", isveren: "", firma: "", olcek: "", arsa: "", insaat: "", kat: "", not: "", kesitNot: "" },
   palette: "toprak",
   style: "modern",
   typologies: [], // {id, name, area, count, image:{dataUrl,name}|null}
@@ -286,6 +286,7 @@ const renderLogoUpload = setupUpload({
 const INFO_FIELDS = {
   projeAdi: "#fProjeAdi", konum: "#fKonum", isveren: "#fIsveren", firma: "#fFirma",
   olcek: "#fOlcek", arsa: "#fArsa", insaat: "#fInsaat", kat: "#fKat", not: "#fNot",
+  kesitNot: "#fKesitNot",
 };
 
 function bindInfo() {
@@ -703,7 +704,7 @@ function buildPageDefs() {
     const o = outImg(id);
     const src = o?.src || opts.fallback || null;
     if (!src) return;
-    defs.push({ title, src, cap: opts.cap || "", scale: !!opts.scale, north: !!opts.north, preview: !!o?.preview, raw: !o });
+    defs.push({ title, src, cap: opts.cap || "", note: opts.note || "", scale: !!opts.scale, north: !!opts.north, preview: !!o?.preview, raw: !o });
   };
   for (const t of PLAN_TYPES) {
     add("tefris-" + t.key, t.name, {
@@ -713,7 +714,7 @@ function buildPageDefs() {
     });
   }
   add("perspektif", "Perspektif Plan", { cap: "3B kesit-perspektif" });
-  add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true });
+  add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true, note: i.kesitNot });
   add("render", "Dış Mekân Görselleştirmesi", { cap: "Tahmini kütle çalışması" });
   for (const t of state.typologies) {
     if (!t.name && !t.image) continue;
@@ -787,6 +788,7 @@ function renderPages() {
       <img src="${d.src}" alt="${esc(d.title)}">
       ${d.scale || d.north ? `<div class="pg-marks">${d.scale ? SCALEBAR_HTML : ""}${d.north ? NORTH_SVG : ""}</div>` : ""}
     </div>
+    ${d.note ? `<div class="pg-note"><b>Not:</b> ${esc(d.note).replace(/\n/g, "<br>")}</div>` : ""}
     ${footHtml}
   </section>`;
   }).join("");
@@ -943,6 +945,7 @@ $("#btnSample").addEventListener("click", () => {
     projeAdi: "Vadi Evleri Konut Projesi", konum: "Urla, İzmir", isveren: "ABC Yapı A.Ş.",
     firma: "Atölye A Mimarlık", olcek: "1/100", arsa: "2450", insaat: "6800", kat: "Zemin + 3",
     not: "Zemin katta ticari birimler; üst katlarda 1+1, 2+1 ve 3+1 konut tipolojileri yer almaktadır.",
+    kesitNot: "Zemin kat yüksekliği 4.50 m, normal katlar 3.00 m; çatı mahyası +12.40 kotundadır. Cephede doğal taş kaplama, çatıda alaturka kiremit önerilmiştir.",
   });
   for (const [k, sel] of Object.entries(INFO_FIELDS)) $(sel).value = state.info[k];
   persistInfo();

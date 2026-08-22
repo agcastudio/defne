@@ -466,6 +466,15 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 }
 .pg-marks { position: absolute; right: 1.8cqw; bottom: 1.4cqw; display: flex; align-items: center; gap: 1.4cqw; }
 
+/* --- Sayfa not bandı (örn. şematik kesit notu) --- */
+.pg-note {
+  flex: none; margin: 0 1.1cqw; padding: .7cqw 1.4cqw;
+  border-left: .12cqw solid #221e18; border-right: .12cqw solid #221e18;
+  border-top: .06cqw solid #d8d1c2;
+  background: #fffefb; font-size: .95cqw; color: #55503f; line-height: 1.55;
+}
+.pg-note b { color: #221e18; font-size: .8cqw; letter-spacing: .1em; text-transform: uppercase; margin-right: .5cqw; }
+
 /* --- Sayfa alt bandı --- */
 .pg-foot {
   flex: none; margin: 0 1.1cqw 1.1cqw; border: .12cqw solid #221e18;
