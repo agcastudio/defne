@@ -329,17 +329,35 @@ function addTypology(data = {}) {
     area: data.area || "",
     count: data.count || "",
     katlar: data.katlar || [], // seçilen standart katlar (birden çok olabilir)
+    dubleks: data.dubleks || false,
   });
   renderTypologies();
 }
 
-/* Tipolojinin alan · adet · kat özet satırı */
+/* Tipolojinin alan · adet · dubleks · kat özet satırı */
 function typoMeta(t) {
   return [
     t.area && t.area + " m²",
     t.count && t.count + " adet",
+    t.dubleks && "Dubleks",
     t.katlar?.length && "Kat: " + t.katlar.join(", "),
   ].filter(Boolean).join(" · ");
+}
+
+/* Dubleks tip için en az iki kat seçili olmasını sağlar.
+   Tek kat seçiliyse bitişiğindeki katı ekler; hiç seçim yoksa Son Kat + Çatı Katı (çatı dubleksi). */
+function ensureDuplexFloors(t) {
+  const secili = t.katlar?.length || 0;
+  if (secili >= 2) return false;
+  const order = KAT_OPTIONS.map((o) => o.value);
+  if (secili === 1) {
+    const i = order.indexOf(t.katlar[0]);
+    const komsu = order[i + 1] || order[i - 1];
+    t.katlar = order.filter((v) => v === t.katlar[0] || v === komsu);
+  } else {
+    t.katlar = ["Son Kat", "Çatı Katı"];
+  }
+  return true;
 }
 
 function renderTypologies() {
@@ -349,6 +367,12 @@ function renderTypologies() {
       <div class="field"><label>Tip Adı</label><input data-f="name" type="text" placeholder="örn. 2+1 Tip A" value="${esc(t.name)}"></div>
       <div class="field"><label>Alan (m²)</label><input data-f="area" type="text" inputmode="decimal" placeholder="78" value="${esc(t.area)}"></div>
       <div class="field"><label>Adet</label><input data-f="count" type="text" inputmode="numeric" placeholder="12" value="${esc(t.count)}"></div>
+      <div class="field field-dubleks"><label>Dubleks</label>
+        <label class="check-box" title="Çift katlı (dubleks) daire">
+          <input type="checkbox" data-dubleks ${t.dubleks ? "checked" : ""}>
+          <span>Çift katlı</span>
+        </label>
+      </div>
       <div class="field field-katlar"><label>Kat(lar) — birden çok seçilebilir</label>
         <div class="chip-row chip-row-sm">
           ${KAT_OPTIONS.map((o) => `
@@ -371,7 +395,16 @@ function renderTypologies() {
         t.katlar = KAT_OPTIONS
           .filter((o) => row.querySelector(`input[data-kat="${o.value}"]`).checked)
           .map((o) => o.value);
+        if (t.dubleks && t.katlar.length < 2 && ensureDuplexFloors(t)) {
+          toast("Dubleks tip en az iki katta yer alır — kat seçimi otomatik tamamlandı.");
+          renderTypologies();
+        }
       });
+    });
+    $("input[data-dubleks]", row).addEventListener("change", (e) => {
+      t.dubleks = e.target.checked;
+      if (t.dubleks && ensureDuplexFloors(t)) toast("Dubleks için iki kat otomatik seçildi.");
+      renderTypologies();
     });
     $("[data-act=rm]", row).addEventListener("click", () => {
       state.typologies = state.typologies.filter((x) => x.id !== t.id);
@@ -449,8 +482,11 @@ function buildPrompt(item) {
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
       const katEnList = (t.katlar || []).map((v) => KAT_OPTIONS.find((o) => o.value === v)?.en).filter(Boolean);
-      const unit = `${t.name || "the unit"}${t.area ? `, approximately ${t.area} m²` : ""}${katEnList.length ? `, located on ${katEnList.join(" and ")}` : ""}`;
-      return `From the attached overall floor plan, isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view. Presentation-board quality.`;
+      const unit = `${t.name || "the unit"}${t.dubleks ? " (duplex)" : ""}${t.area ? `, approximately ${t.area} m²` : ""}${katEnList.length ? `, located on ${katEnList.join(" and ")}` : ""}`;
+      const duplexTxt = t.dubleks
+        ? " This is a DUPLEX unit spanning two levels connected by an internal staircase: draw BOTH levels side by side as two separate plans (lower level on the left, upper level on the right), each fully furnished, with the connecting staircase clearly shown in the same position on both levels."
+        : "";
+      return `From the attached overall floor plan, isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view.${duplexTxt} Presentation-board quality.`;
     }
   }
   return "";
@@ -990,7 +1026,7 @@ $("#btnSample").addEventListener("click", () => {
   state.typologies = [];
   addTypology({ name: "1+1 Tip A", area: "52", count: "12", katlar: ["Zemin Kat", "Ara Katlar"] });
   addTypology({ name: "2+1 Tip B", area: "78", count: "18", katlar: ["Ara Katlar"] });
-  addTypology({ name: "3+1 Tip C", area: "104", count: "6", katlar: ["Son Kat", "Çatı Katı"] });
+  addTypology({ name: "3+1 Tip C", area: "104", count: "6", katlar: ["Son Kat", "Çatı Katı"], dubleks: true });
 
   toast("Örnek proje yüklendi — adımları gezerek deneyebilirsiniz.");
   goTo(1);

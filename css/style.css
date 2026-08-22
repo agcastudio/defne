@@ -345,11 +345,20 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 
 /* Tipoloji satırları */
 .typology-row {
-  display: grid; grid-template-columns: 1.1fr .5fr .4fr 1.7fr auto; gap: 12px;
+  display: grid; grid-template-columns: 1.05fr .5fr .4fr auto 1.55fr auto; gap: 12px;
   align-items: end; padding: 14px; border: 1px solid var(--line);
   border-radius: var(--radius-sm); background: var(--paper); margin-bottom: 12px;
 }
 .typology-row .field-katlar { min-width: 0; }
+.check-box {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 9px 13px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--white); font-size: 13.5px; font-weight: 600; color: var(--ink-soft);
+  white-space: nowrap; transition: border-color .15s ease;
+}
+.check-box:hover { border-color: var(--ink-soft); }
+.check-box input { width: 16px; height: 16px; accent-color: var(--acc); cursor: pointer; }
+.check-box:has(input:checked) { border-color: var(--ink); color: var(--ink); background: var(--acc-soft); }
 .chip-row-sm { gap: 6px; }
 .chip-sm span { padding: 8px 13px; font-size: 12.5px; background: var(--white); }
 
