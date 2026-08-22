@@ -693,6 +693,19 @@ function logoHtml() {
     : `<div class="logo-text">${esc(state.info.firma || "PAFTA STUDIO")}</div>`;
 }
 
+/* Not metnini satır satır panoya çevirir; "Etiket: değer" satırlarında değer kalın yazılır */
+function sideNoteHtml(note) {
+  return String(note).split(/\r?\n/).map((line) => {
+    const t = line.trim();
+    if (!t) return `<div class="sn-gap"></div>`;
+    const idx = t.indexOf(":");
+    if (idx > 0 && idx < t.length - 1) {
+      return `<div class="sn-row">${esc(t.slice(0, idx + 1))} <b>${esc(t.slice(idx + 1).trim())}</b></div>`;
+    }
+    return `<div class="sn-row">${esc(t)}</div>`;
+  }).join("");
+}
+
 const NORTH_SVG = `<svg class="bs-north" viewBox="0 0 24 24"><circle cx="12" cy="13" r="9" fill="none" stroke="#221e18" stroke-width="1.2"/><path d="M12 6 L15.5 17 L12 14.4 L8.5 17 Z" fill="#221e18"/><text x="12" y="3.6" font-size="5.5" text-anchor="middle" fill="#221e18" font-family="Segoe UI">K</text></svg>`;
 const SCALEBAR_HTML = `<div class="bs-scalebar"><span>0</span><span class="bar"><i></i><i></i><i></i><i></i></span><span>8 m</span></div>`;
 
@@ -773,6 +786,18 @@ function renderPages() {
 
   const contentHtml = defs.map((d, idx) => {
     const capLines = [d.cap, d.preview ? "stilize önizleme" : "", d.raw ? "orijinal çizim" : ""].filter(Boolean);
+    const marksHtml = d.scale || d.north ? `<div class="pg-marks">${d.scale ? SCALEBAR_HTML : ""}${d.north ? NORTH_SVG : ""}</div>` : "";
+    const imgHtml = `<img src="${d.src}" alt="${esc(d.title)}">`;
+    // Not varsa: sol şeritte büyük puntolu bilgi panosu + sağda çizim
+    const bodyHtml = d.note
+      ? `<div class="pg-body pg-split">
+           <aside class="pg-sidenote">
+             <span class="sn-head">Proje Notları</span>
+             ${sideNoteHtml(d.note)}
+           </aside>
+           <div class="pg-img-area">${imgHtml}${marksHtml}</div>
+         </div>`
+      : `<div class="pg-body">${imgHtml}${marksHtml}</div>`;
     return `
   <section class="page">
     <header class="pg-head">
@@ -784,11 +809,7 @@ function renderPages() {
       ${capLines.length ? `<div class="pg-cap">${capLines.map(esc).join("<br>")}</div>` : ""}
       <div class="pg-num">${String(idx + 2).padStart(2, "0")}<span>/ ${String(total).padStart(2, "0")}</span></div>
     </header>
-    <div class="pg-body">
-      <img src="${d.src}" alt="${esc(d.title)}">
-      ${d.scale || d.north ? `<div class="pg-marks">${d.scale ? SCALEBAR_HTML : ""}${d.north ? NORTH_SVG : ""}</div>` : ""}
-    </div>
-    ${d.note ? `<div class="pg-note"><b>Not:</b> ${esc(d.note).replace(/\n/g, "<br>")}</div>` : ""}
+    ${bodyHtml}
     ${footHtml}
   </section>`;
   }).join("");
@@ -945,7 +966,7 @@ $("#btnSample").addEventListener("click", () => {
     projeAdi: "Vadi Evleri Konut Projesi", konum: "Urla, İzmir", isveren: "ABC Yapı A.Ş.",
     firma: "Atölye A Mimarlık", olcek: "1/100", arsa: "2450", insaat: "6800", kat: "Zemin + 3",
     not: "Zemin katta ticari birimler; üst katlarda 1+1, 2+1 ve 3+1 konut tipolojileri yer almaktadır.",
-    kesitNot: "Zemin kat yüksekliği 4.50 m, normal katlar 3.00 m; çatı mahyası +12.40 kotundadır. Cephede doğal taş kaplama, çatıda alaturka kiremit önerilmiştir.",
+    kesitNot: "Müteahhit payı: %50\nMal sahibi payı: %50\n\nToplam inşaat alanı: 6800 m²\nToplam ortak alan: 300 m²\n\nZemin kat yüksekliği: 4.50 m\nNormal kat yüksekliği: 3.00 m\nÇatı mahyası: +12.40",
   });
   for (const [k, sel] of Object.entries(INFO_FIELDS)) $(sel).value = state.info[k];
   persistInfo();

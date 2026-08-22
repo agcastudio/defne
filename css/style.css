@@ -466,14 +466,26 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 }
 .pg-marks { position: absolute; right: 1.8cqw; bottom: 1.4cqw; display: flex; align-items: center; gap: 1.4cqw; }
 
-/* --- Sayfa not bandı (örn. şematik kesit notu) --- */
-.pg-note {
-  flex: none; margin: 0 1.1cqw; padding: .7cqw 1.4cqw;
-  border-left: .12cqw solid #221e18; border-right: .12cqw solid #221e18;
-  border-top: .06cqw solid #d8d1c2;
-  background: #fffefb; font-size: .95cqw; color: #55503f; line-height: 1.55;
+/* --- Sol not panosu (örn. şematik kesit notu) --- */
+.pg-body.pg-split { padding: 0; display: flex; align-items: stretch; justify-content: flex-start; }
+.pg-sidenote {
+  flex: none; width: 27cqw; min-width: 0; padding: 1.6cqw 1.8cqw;
+  border-right: .08cqw solid #221e18; background: #fffefb;
+  display: flex; flex-direction: column; gap: .55cqw; overflow: hidden;
 }
-.pg-note b { color: #221e18; font-size: .8cqw; letter-spacing: .1em; text-transform: uppercase; margin-right: .5cqw; }
+.sn-head {
+  flex: none; font-size: .95cqw; letter-spacing: .24em; text-transform: uppercase;
+  color: #8a6d1a; font-weight: 700; padding-bottom: .6cqw; margin-bottom: .7cqw;
+  border-bottom: .14cqw solid #221e18;
+}
+.sn-row { font-size: 1.45cqw; line-height: 1.45; color: #221e18; overflow-wrap: break-word; }
+.sn-row b { font-weight: 700; }
+.sn-gap { flex: none; height: 1.1cqw; }
+.pg-img-area {
+  flex: 1; min-width: 0; position: relative;
+  display: flex; align-items: center; justify-content: center; padding: 1.6cqw;
+}
+.pg-img-area img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
 /* --- Sayfa alt bandı --- */
 .pg-foot {
