@@ -535,7 +535,7 @@ ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
 - The wall layout, room shapes, proportions and apartment boundaries must remain EXACTLY as in the source image. Do not add, remove, move or resize any wall.
 - Every door and window stays in its exact position with the same width. Do not add or remove any.
 - Every piece of furniture stays in the SAME position, SAME orientation and SAME size as in the source — no additions, no removals, no rearranging, no restyling.
-- All floor materials remain identical to the source: the same pale oak wood in bedrooms and living rooms, the same sand-beige ceramic tiles in kitchens, bathrooms, foyers, halls and balconies, and the same seamless grey epoxy in the common stair/elevator core.
+- All floor materials remain identical to the source: the same warm light-oak wood flooring in living rooms and bedrooms, the same sand-beige matte ceramic tiles in kitchens, bathrooms, foyers, halls and balconies, and the same sand-beige matte porcelain tile flooring in the common corridor, elevator lobby and stair landing.
 - The color palette, furniture styling and overall atmosphere must match the source image exactly.
 - This is the SAME floor plan and SAME render, only rotated into an isometric perspective — not a reinterpretation.`;
     case "kesit":
