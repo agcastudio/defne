@@ -545,37 +545,30 @@ function buildPrompt(item) {
   switch (item.group) {
     case "tefris": {
       const floorCtx = item.floorEn ? `\n\nFLOOR CONTEXT: This drawing is the ${item.floorEn} plan of the building.` : "";
-      return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls and doors cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
-
-STEP 1 — ANALYZE THE PLAN FIRST (do this BEFORE any rendering):
-- Study the entire floor plan slowly and thoroughly before drawing a single element. Do not start rendering until the analysis below is complete.
-- FIRST, DETECT EVERY DOOR: scan the whole drawing and locate every door-swing arc symbol — apartment entrance doors, interior room doors, bathroom/WC doors and balcony doors. Doors are the PRIMARY KEY for reading this plan; finding all of them is the highest-priority task.
-- USE THE DOORS TO DECODE THE SPATIAL STRUCTURE: doors that open onto the shared corridor or the stair/elevator core are APARTMENT ENTRANCE doors. The space these doors open FROM (corridor, elevator lobby, staircase) is the COMMON AREA; everything reached BEHIND one entrance door belongs to one PRIVATE APARTMENT.
-- From this, determine exactly how many apartments (unit typologies) exist on this floor and trace each apartment's precise boundary. Then use the interior doors to identify the rooms inside each apartment (living room, bedrooms, kitchen, bathroom, WC, balcony).
-- Only after this door-based analysis is complete, start rendering — and make the render reflect the structure you found: correct common-vs-apartment material separation and correct room-appropriate furnishing for every room of every apartment.
+      return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
 
 ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
 - The source drawing is ground truth. Analyze it carefully and reproduce the wall layout EXACTLY: every wall, partition, door and window must keep its exact position, size, orientation and count.
 - Do NOT add, remove, move, resize or merge any wall, door, window or room. Do not invent openings that are not drawn.
-- Preserve the exact building footprint and outline geometry as drawn. If the outline is slanted, angled, trapezoidal, curved or irregular in ANY way, reproduce that geometry precisely — NEVER straighten, square up, simplify or "correct" it.
-- If the plan has symmetry, mirrored wings or repeating units, preserve that arrangement exactly as drawn; if it is asymmetrical, keep it asymmetrical. NEVER impose symmetry that is not drawn, and NEVER break symmetry that is.
+- Preserve the exact building footprint, including the SLANTED right-hand exterior wall — the outline is trapezoidal, NOT rectangular. Do not straighten it.
+- Keep the mirrored left/right symmetry of the two wings exactly as drawn.
 
 DOORS — STRICT RULES, ZERO TOLERANCE:
 - Before rendering, scan the ENTIRE plan and count every door-swing arc symbol. The render must contain EXACTLY that many door leaves — not one more, not one fewer.
 - Every drawn door-swing arc = one clearly visible door leaf, hinged on the drawn side, opening in the drawn swing direction, at the drawn width.
 - A drawn doorway must NEVER be rendered as blank wall, and NEVER as an empty opening without a door leaf. Conversely, never invent a door where no arc is drawn.
-- Pay special attention to the SMALL doors of toilets and bathrooms that are entered from inside bedrooms — these are the most commonly missed. Every bathroom and WC must have its drawn entrance door rendered; not a single one may be missing.
+- Pay special attention to the SMALL doors of toilets and bathrooms that are entered from inside bedrooms — these are the most commonly missed. Every bathroom and WC in this plan has exactly one entrance door; every single one must be rendered.
 - Every enclosed room must be reachable through its drawn door; no room may end up sealed off with no door.
-- If the plan contains mirrored or repeated units, doors must appear consistently in every instance: for each door in one unit, verify that its counterpart exists in every mirrored or repeated twin unit.
+- Because the plan is mirrored, every door on the left wing has a counterpart on the right wing — if a door exists on one side, verify its mirrored twin exists too.
 - Interior doors: muted clay-toned flat-panel wood, contemporary modern. Apartment entrance doors on the common corridor: slightly darker clay tone to distinguish them.
 - FINAL SELF-CHECK before output: go room by room (each bathroom, WC, bedroom, kitchen, apartment entrance) and confirm its door is present exactly as drawn. A single missing door makes the output invalid.
 
-FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture.
+FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture, plants, rugs or décor.
 
 SPATIAL LOGIC — COMMON AREA vs APARTMENTS:
-- This is one floor of a residential building.
-- Apply the door-based analysis from STEP 1: the COMMON CIRCULATION AREA is where the apartment entrance doors open from (staircases, elevator shafts, elevator lobbies and shared corridors — wherever they are located in the plan). Everything behind each apartment entrance door is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
-- Materials must clearly distinguish the common circulation area from the private apartments, following the apartment boundaries identified in STEP 1.
+- This is one floor of a residential apartment building.
+- The COMMON CIRCULATION AREA consists of: the central core at the top (staircase + elevator shaft + the elevator lobby between them) and the long horizontal corridor running across the middle of the plan, onto which all apartment entrance doors open. Everything else is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
+- Materials must clearly distinguish common area from apartments.
 
 MATERIALS & PALETTE — warm terracotta, sand beige and muted clay tones, contemporary modern style:
 - Common corridor, elevator lobby and stair landing: large-format matte porcelain tile flooring in sand beige; stair treads in the same beige stone; muted clay-toned apartment entrance doors.
@@ -588,6 +581,8 @@ STYLE:
 - Straight top-down orthographic camera, no perspective tilt, but walls have slight visible height and thickness, casting soft subtle shadows onto the floors — like a physical scale model photographed from above.
 - Light, airy, warm neutral palette overall: pale floors, cream-white wall tops, natural light wood door frames and furniture accents.
 - Fully furnished with realistic rendered furniture: upholstered beds with soft duvets and layered pillows, fabric sofas with cushions, wooden dining table with chairs, wardrobes, kitchen counters with sink and cooktop, WC, washbasin, bathtub — all with real material textures (linen, wood, ceramic).
+- Render ALL doors in the OPEN position: each door leaf stands open (swung about 90 degrees, following the swing direction drawn in the source plan), so every doorway reads as an open passage and room connections are clearly visible. Do not render any door closed, and do not remove the door leaves — they stay visible, just open.
+- Small styling details: potted plants, area rugs under seating groups, muted olive-green accent pillows.
 - Soft diffused ambient lighting, gentle realistic shadows, no harsh highlights.
 - Clean light grey-white background around the plan, no text labels, no dimensions.
 - High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}`;
