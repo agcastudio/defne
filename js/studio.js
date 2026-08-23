@@ -478,8 +478,47 @@ function buildPrompt(item) {
 
   switch (item.group) {
     case "tefris": {
-      const floorCtx = item.floorEn ? ` This drawing is the ${item.floorEn} plan of the building — furnish and label it accordingly.` : "";
-      return `You are an expert architectural illustrator. Redraw the attached schematic floor plan as a high-quality 2D presentation floor plan, strictly preserving its exact wall layout, room proportions and door/window positions. Draw cut walls as solid black poché, doors with quarter-circle swing symbols and windows with standard double-line symbols on the walls. Furnish every room appropriately (sofas, beds, dining table, kitchen counters, wardrobes, rugs, plants) in a neat top-down 2D style consistent with a ${s.en} interior. Color the floors room by room using a ${p.en} color scheme with subtle material textures. Pure white background, crisp thin linework, flat orthographic top-down view, no perspective distortion.${floorCtx} Presentation-board quality.`;
+      const floorCtx = item.floorEn ? `\n\nFLOOR CONTEXT: This drawing is the ${item.floorEn} plan of the building.` : "";
+      return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
+
+ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
+- The source drawing is ground truth. Analyze it carefully and reproduce the wall layout EXACTLY: every wall, partition, door and window must keep its exact position, size, orientation and count.
+- Do NOT add, remove, move, resize or merge any wall, door, window or room. Do not invent openings that are not drawn.
+- Preserve the exact building footprint, including the SLANTED right-hand exterior wall — the outline is trapezoidal, NOT rectangular. Do not straighten it.
+- Keep the mirrored left/right symmetry of the two wings exactly as drawn.
+
+DOORS — STRICT RULES, ZERO TOLERANCE:
+- Before rendering, scan the ENTIRE plan and count every door-swing arc symbol. The render must contain EXACTLY that many door leaves — not one more, not one fewer.
+- Every drawn door-swing arc = one clearly visible door leaf, hinged on the drawn side, opening in the drawn swing direction, at the drawn width.
+- A drawn doorway must NEVER be rendered as blank wall, and NEVER as an empty opening without a door leaf. Conversely, never invent a door where no arc is drawn.
+- Pay special attention to the SMALL doors of toilets and bathrooms that are entered from inside bedrooms — these are the most commonly missed. Every bathroom and WC in this plan has exactly one entrance door; every single one must be rendered.
+- Every enclosed room must be reachable through its drawn door; no room may end up sealed off with no door.
+- Because the plan is mirrored, every door on the left wing has a counterpart on the right wing — if a door exists on one side, verify its mirrored twin exists too.
+- Interior doors: muted clay-toned flat-panel wood, contemporary modern. Apartment entrance doors on the common corridor: slightly darker clay tone to distinguish them.
+- FINAL SELF-CHECK before output: go room by room (each bathroom, WC, bedroom, kitchen, apartment entrance) and confirm its door is present exactly as drawn. A single missing door makes the output invalid.
+
+FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture, plants, rugs or décor.
+
+SPATIAL LOGIC — COMMON AREA vs APARTMENTS:
+- This is one floor of a residential apartment building.
+- The COMMON CIRCULATION AREA consists of: the central core at the top (staircase + elevator shaft + the elevator lobby between them) and the long horizontal corridor running across the middle of the plan, onto which all apartment entrance doors open. Everything else is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
+- Materials must clearly distinguish common area from apartments.
+
+MATERIALS & PALETTE — warm terracotta, sand beige and muted clay tones, contemporary modern style:
+- Common corridor, elevator lobby and stair landing: large-format matte porcelain tile flooring in sand beige; stair treads in the same beige stone; muted clay-toned apartment entrance doors.
+- Apartment living rooms and bedrooms: warm light-oak wood flooring; sofas and beds upholstered in terracotta and muted clay fabrics; sand-beige walls.
+- Kitchens: matte clay-toned cabinetry, beige stone countertops, exactly on the drawn counter runs.
+- Bathrooms: sand-beige matte ceramic floor and wall tiles, white sanitaryware exactly as drawn.
+- Cut wall tops: uniform neutral off-white so the layout stays readable.
+
+STYLE:
+- Straight top-down orthographic camera, no perspective tilt, but walls have slight visible height and thickness, casting soft subtle shadows onto the floors — like a physical scale model photographed from above.
+- Light, airy, warm neutral palette overall: pale floors, cream-white wall tops, natural light wood door frames and furniture accents.
+- Fully furnished with realistic rendered furniture: upholstered beds with soft duvets and layered pillows, fabric sofas with cushions, wooden dining table with chairs, wardrobes, kitchen counters with sink and cooktop, WC, washbasin, bathtub — all with real material textures (linen, wood, ceramic).
+- Small styling details: potted plants, area rugs under seating groups, muted olive-green accent pillows.
+- Soft diffused ambient lighting, gentle realistic shadows, no harsh highlights.
+- Clean light grey-white background around the plan, no text labels, no dimensions.
+- High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}`;
     }
     case "vaziyet":
       return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
