@@ -533,6 +533,13 @@ function buildPrompt(item) {
       const floorCtx = item.floorEn ? `\n\nFLOOR CONTEXT: This drawing is the ${item.floorEn} plan of the building.` : "";
       return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls and doors cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
 
+STEP 1 — ANALYZE THE PLAN FIRST (do this BEFORE any rendering):
+- Study the entire floor plan slowly and thoroughly before drawing a single element. Do not start rendering until the analysis below is complete.
+- FIRST, DETECT EVERY DOOR: scan the whole drawing and locate every door-swing arc symbol — apartment entrance doors, interior room doors, bathroom/WC doors and balcony doors. Doors are the PRIMARY KEY for reading this plan; finding all of them is the highest-priority task.
+- USE THE DOORS TO DECODE THE SPATIAL STRUCTURE: doors that open onto the shared corridor or the stair/elevator core are APARTMENT ENTRANCE doors. The space these doors open FROM (corridor, elevator lobby, staircase) is the COMMON AREA; everything reached BEHIND one entrance door belongs to one PRIVATE APARTMENT.
+- From this, determine exactly how many apartments (unit typologies) exist on this floor and trace each apartment's precise boundary. Then use the interior doors to identify the rooms inside each apartment (living room, bedrooms, kitchen, bathroom, WC, balcony).
+- Only after this door-based analysis is complete, start rendering — and make the render reflect the structure you found: correct common-vs-apartment material separation and correct room-appropriate furnishing for every room of every apartment.
+
 ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
 - The source drawing is ground truth. Analyze it carefully and reproduce the wall layout EXACTLY: every wall, partition, door and window must keep its exact position, size, orientation and count.
 - Do NOT add, remove, move, resize or merge any wall, door, window or room. Do not invent openings that are not drawn.
@@ -553,8 +560,8 @@ FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dini
 
 SPATIAL LOGIC — COMMON AREA vs APARTMENTS:
 - This is one floor of a residential building.
-- Identify the COMMON CIRCULATION AREA from the drawing itself: staircases, elevator shafts, elevator lobbies and any shared corridors onto which the apartment entrance doors open — wherever they are located in the plan. Everything else is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
-- Materials must clearly distinguish the common circulation area from the private apartments.
+- Apply the door-based analysis from STEP 1: the COMMON CIRCULATION AREA is where the apartment entrance doors open from (staircases, elevator shafts, elevator lobbies and shared corridors — wherever they are located in the plan). Everything behind each apartment entrance door is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
+- Materials must clearly distinguish the common circulation area from the private apartments, following the apartment boundaries identified in STEP 1.
 
 MATERIALS & PALETTE — warm terracotta, sand beige and muted clay tones, contemporary modern style:
 - Common corridor, elevator lobby and stair landing: large-format matte porcelain tile flooring in sand beige; stair treads in the same beige stone; muted clay-toned apartment entrance doors.
@@ -604,7 +611,9 @@ ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
       const duplexTxt = t.dubleks
         ? " This is a DUPLEX unit spanning two levels connected by an internal staircase: draw BOTH levels side by side as two separate plans (lower level on the left, upper level on the right), each fully furnished, with the connecting staircase clearly shown in the same position on both levels."
         : "";
-      return `From the attached overall floor plan, isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols, full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view.${duplexTxt} Presentation-board quality.`;
+      return `STEP 1 — ANALYZE THE PLAN FIRST: study the attached overall floor plan thoroughly before drawing. FIRST detect every door-swing arc symbol; the doors opening from the shared corridor or stair/elevator core are the APARTMENT ENTRANCE doors, and everything behind one entrance door is one private apartment — use this to trace each apartment's exact boundary and identify the unit typologies on the floor.
+
+STEP 2 — Then isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols (every door found in the analysis must be present), full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view.${duplexTxt} Presentation-board quality.`;
     }
   }
   return "";
