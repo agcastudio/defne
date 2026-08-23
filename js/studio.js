@@ -549,7 +549,7 @@ DOORS — STRICT RULES, ZERO TOLERANCE:
 - Interior doors: muted clay-toned flat-panel wood, contemporary modern. Apartment entrance doors on the common corridor: slightly darker clay tone to distinguish them.
 - FINAL SELF-CHECK before output: go room by room (each bathroom, WC, bedroom, kitchen, apartment entrance) and confirm its door is present exactly as drawn. A single missing door makes the output invalid.
 
-FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture, plants, rugs or décor.
+FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture.
 
 SPATIAL LOGIC — COMMON AREA vs APARTMENTS:
 - This is one floor of a residential building.
@@ -567,7 +567,6 @@ STYLE:
 - Straight top-down orthographic camera, no perspective tilt, but walls have slight visible height and thickness, casting soft subtle shadows onto the floors — like a physical scale model photographed from above.
 - Light, airy, warm neutral palette overall: pale floors, cream-white wall tops, natural light wood door frames and furniture accents.
 - Fully furnished with realistic rendered furniture: upholstered beds with soft duvets and layered pillows, fabric sofas with cushions, wooden dining table with chairs, wardrobes, kitchen counters with sink and cooktop, WC, washbasin, bathtub — all with real material textures (linen, wood, ceramic).
-- Render ALL doors in the OPEN position: each door leaf stands open (swung about 90 degrees, following the swing direction drawn in the source plan), so every doorway reads as an open passage and room connections are clearly visible. Do not render any door closed, and do not remove the door leaves — they stay visible, just open.
 - Soft diffused ambient lighting, gentle realistic shadows, no harsh highlights.
 - Clean light grey-white background around the plan, no text labels, no dimensions.
 - High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}`;
