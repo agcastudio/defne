@@ -36,7 +36,7 @@
       <div class="panel-head">
         <div>
           <h2>Girdilerinizi yükleyin</h2>
-          <p>Şematik çizimlerinizin fotoğrafı ya da taraması yeterlidir (PNG, JPG, WebP, SVG). Elinizde hangi planlar varsa onları yükleyin — <b>en az bir plan</b> zorunludur; her yüklenen plan için ayrı sunum paftası üretilir.</p>
+          <p>Şematik çizimlerinizin fotoğrafı, taraması ya da PDF'i yeterlidir (PNG, JPG, WebP, SVG, PDF — PDF'lerin ilk sayfası kullanılır). Elinizde hangi planlar varsa onları yükleyin — <b>en az bir plan</b> zorunludur; her yüklenen plan için ayrı sunum paftası üretilir.</p>
         </div>
       </div>
 
@@ -60,7 +60,7 @@
                 <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
               </div>
             </div>
-            <input type="file" id="fileKesit" accept="image/*" hidden>
+            <input type="file" id="fileKesit" accept="image/*,.pdf,application/pdf" hidden>
             <div class="file-actions">
               <span class="file-name" id="nameKesit"></span>
               <button class="link-danger" id="rmKesit" type="button" hidden>Kaldır</button>
@@ -76,7 +76,7 @@
                 <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
               </div>
             </div>
-            <input type="file" id="fileLogo" accept="image/*" hidden>
+            <input type="file" id="fileLogo" accept="image/*,.pdf,application/pdf" hidden>
             <div class="file-actions">
               <span class="file-name" id="nameLogo"></span>
               <button class="link-danger" id="rmLogo" type="button" hidden>Kaldır</button>

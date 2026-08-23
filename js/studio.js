@@ -116,6 +116,47 @@ function loadImage(src) {
   });
 }
 
+/* ---------------- PDF desteği (PDF.js, yerel vendor) ---------------- */
+
+let pdfjsPromise = null;
+function loadPdfJs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import(new URL("js/vendor/pdfjs.js", document.baseURI).href).then((lib) => {
+      lib.GlobalWorkerOptions.workerSrc = new URL("js/vendor/pdfjs.worker.js", document.baseURI).href;
+      return lib;
+    });
+  }
+  return pdfjsPromise;
+}
+
+function isPdf(file) {
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+}
+
+/* PDF'in ilk sayfasını yüksek çözünürlüklü PNG data URL'e çevirir */
+async function pdfToDataUrl(file) {
+  const lib = await loadPdfJs();
+  const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+  try {
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(4, Math.max(1, 2200 / Math.max(base.width, base.height)));
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // intent: "print" — ekran render'ının requestAnimationFrame beklemesi, sekme
+    // arka plandayken sonsuza dek takılabildiği için senkron akışla çiziyoruz.
+    await page.render({ canvasContext: ctx, viewport, intent: "print" }).promise;
+    return { dataUrl: canvas.toDataURL("image/png"), pages: pdf.numPages };
+  } finally {
+    pdf.destroy();
+  }
+}
+
 /* Görseli küçültüp JPEG base64'e çevirir (API istekleri için) */
 async function toJpegBase64(dataUrl, maxDim = MAX_IMG_DIM) {
   const img = await loadImage(dataUrl);
@@ -181,13 +222,24 @@ document.addEventListener("click", (e) => {
 
 function setupUpload({ dz, input, nameEl, rm, get, set }) {
   const setImage = async (file) => {
-    if (!file || !file.type.startsWith("image/")) { toast("Lütfen bir görsel dosyası seçin.", true); return; }
+    if (!file) return;
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      await loadImage(dataUrl); // bozuk dosyayı erken yakala
+      let dataUrl;
+      if (isPdf(file)) {
+        toast("PDF görüntüye dönüştürülüyor…");
+        const res = await pdfToDataUrl(file);
+        dataUrl = res.dataUrl;
+        if (res.pages > 1) toast(`PDF ${res.pages} sayfalı — ilk sayfası alındı.`);
+      } else if (file.type.startsWith("image/")) {
+        dataUrl = await readFileAsDataUrl(file);
+        await loadImage(dataUrl); // bozuk dosyayı erken yakala
+      } else {
+        toast("Lütfen bir görsel ya da PDF dosyası seçin.", true);
+        return;
+      }
       set({ dataUrl, name: file.name });
       renderUpload();
-    } catch { toast("Görsel okunamadı — farklı bir dosya deneyin.", true); }
+    } catch { toast("Dosya okunamadı — farklı bir dosya deneyin.", true); }
   };
 
   const renderUpload = () => {
@@ -263,7 +315,7 @@ function renderPlanCards() {
           <span><b>Tıklayın</b> ya da dosyayı buraya sürükleyin</span>
         </div>
       </div>
-      <input type="file" id="file-${t.key}" accept="image/*" hidden>
+      <input type="file" id="file-${t.key}" accept="image/*,.pdf,application/pdf" hidden>
       <div class="file-actions">
         <span class="file-name" id="name-${t.key}"></span>
         <button class="link-danger" id="rm-${t.key}" type="button" hidden>Kaldır</button>
