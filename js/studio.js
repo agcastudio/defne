@@ -34,11 +34,25 @@ const PLAN_TYPES = [
 /* Perspektif, render ve tipolojiler için temel alınacak kat önceliği */
 const PLAN_PRIORITY = ["ara", "zemin", "son", "cati", "bodrum"];
 
-function primaryPlan() {
-  for (const k of PLAN_PRIORITY) if (state.inputs.plans[k]) return state.inputs.plans[k];
+function primaryPlanKey() {
+  for (const k of PLAN_PRIORITY) if (state.inputs.plans[k]) return k;
   return null;
 }
+function primaryPlan() {
+  const k = primaryPlanKey();
+  return k ? state.inputs.plans[k] : null;
+}
 function anyPlan() { return primaryPlan() || state.inputs.plans.vaziyet || null; }
+
+/* Tipolojinin kaynak katı: seçili katlarından planı yüklü ilk kat; yoksa öncelikli kat */
+const KAT_TO_PLAN = { "Bodrum Kat": "bodrum", "Zemin Kat": "zemin", "Ara Katlar": "ara", "Son Kat": "son", "Çatı Katı": "cati" };
+function tipSourceFloorKey(t) {
+  for (const v of t.katlar || []) {
+    const k = KAT_TO_PLAN[v];
+    if (k && state.inputs.plans[k]) return k;
+  }
+  return primaryPlanKey();
+}
 
 /* Tipolojiler için standart kat seçenekleri — birden çok kat seçilebilir
    (short: satırdaki çip etiketi, en: prompt'taki İngilizce karşılık) */
@@ -611,9 +625,19 @@ ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
       const duplexTxt = t.dubleks
         ? " This is a DUPLEX unit spanning two levels connected by an internal staircase: draw BOTH levels side by side as two separate plans (lower level on the left, upper level on the right), each fully furnished, with the connecting staircase clearly shown in the same position on both levels."
         : "";
-      return `STEP 1 — ANALYZE THE PLAN FIRST: study the attached overall floor plan thoroughly before drawing. FIRST detect every door-swing arc symbol; the doors opening from the shared corridor or stair/elevator core are the APARTMENT ENTRANCE doors, and everything behind one entrance door is one private apartment — use this to trace each apartment's exact boundary and identify the unit typologies on the floor.
+      return `STEP 1 — ANALYZE THE RENDERED PLAN FIRST (do this BEFORE drawing anything):
+The attached image is the rendered (colored and furnished) top-down plan of one FULL floor of a residential building. Study it slowly and thoroughly.
+- FIRST, DETECT EVERY DOOR: locate every rendered door leaf and doorway on the floor. Doors are the PRIMARY KEY for reading the plan.
+- The doors opening from the shared corridor / stair-elevator core are the APARTMENT ENTRANCE doors. The area those doors open FROM is the COMMON AREA; everything reached BEHIND one entrance door is ONE private apartment.
+- Confirm the boundaries with the material difference too: the common area has different flooring than the apartment interiors.
+- Determine how many apartments exist on the floor and trace each apartment's exact boundary.
 
-STEP 2 — Then isolate and redraw ONLY the residential unit type "${unit}" as its own standalone 2D presentation floor plan: solid black poché walls, standard door swing and window symbols (every door found in the analysis must be present), full furniture layout in a ${s.en} style, room-by-room floor colors in a ${p.en} palette, pure white background, crisp thin linework, flat top-down orthographic view.${duplexTxt} Presentation-board quality.`;
+STEP 2 — TRACE THE TARGET UNIT'S BOUNDARY WITH ZERO TOLERANCE:
+- An apartment consists of ALL rooms reachable from its single entrance door without re-entering the common area — its hall, living room, bedrooms, kitchen, bathrooms/WC and its balconies.
+- The boundary follows the apartment's enclosing walls exactly. NEVER cut through a room, NEVER include any part of the common corridor/stair/elevator core, NEVER include rooms of a neighboring apartment, and NEVER leave out a room that belongs to the unit.
+- If several apartments of the same type exist on the floor (e.g., mirrored twins), select exactly ONE representative instance.
+
+STEP 3 — OUTPUT: extract and present ONLY the residential unit type "${unit}" as its own standalone top-down render: keep EXACTLY the same rendering style, materials, colors, furniture placement and lighting as the source image — as if the unit were cleanly cut out along its boundary walls and presented alone, re-centered on a clean light grey-white background, no text labels. Every door and window of the unit found in the analysis must be present.${duplexTxt} High-end real estate presentation quality.`;
     }
   }
   return "";
@@ -677,11 +701,21 @@ function rebuildOutputs() {
     });
   }
   for (const t of state.typologies) {
-    if (!t.name || !prim) continue; // tip planı ana kat planından türetilir
+    if (!t.name || !prim) continue; // tip planı, ilgili katın boyamasından türetilir
+    const tt = t;
     put({
-      id: "tip-" + t.id, group: "tip", title: `Tipoloji — ${t.name}`, sub: typoMeta(t) || "Tip planı",
-      base: () => primaryPlan().dataUrl,
-      sources: () => [primaryPlan().dataUrl],
+      id: "tip-" + tt.id, group: "tip", title: `Tipoloji — ${tt.name}`, sub: typoMeta(tt) || "Tip planı",
+      base: () => {
+        const k = tipSourceFloorKey(tt);
+        return state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl;
+      },
+      // Girdi: ilgili katın ÜRETİLMİŞ boyalı planı (perspektifle aynı mantık)
+      sources: () => {
+        const k = tipSourceFloorKey(tt);
+        const boyama = state.outputs["tefris-" + k];
+        return boyama?.status === "hazir" && boyama.result ? [boyama.result] : [];
+      },
+      missingMsg: "Önce ilgili katın boyalı planı üretilmeli — tipoloji planı, kat boyaması üzerinden ayrıştırılır.",
     });
   }
 
