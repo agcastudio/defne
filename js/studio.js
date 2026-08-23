@@ -8,18 +8,18 @@
 
 const PALETTES = {
   toprak: { name: "Toprak", desc: "Terracotta & kum", colors: ["#b8502f", "#e0a184", "#f3e6d8", "#4f3a2d"], duo: ["#6b3a24", "#f6efe4"], en: "warm terracotta, sand beige and muted clay tones" },
-  kuzey:  { name: "Kuzey", desc: "Adaçayı & meşe", colors: ["#7e9484", "#c9b799", "#f0ede5", "#33403a"], duo: ["#33403a", "#f1efe8"], en: "soft sage green, warm oak wood and off-white Scandinavian tones" },
-  gece:   { name: "Gece", desc: "Lacivert & pirinç", colors: ["#22334a", "#c9a227", "#e9e4d8", "#141d2b"], duo: ["#22334a", "#eef0f4"], en: "deep navy blue with brass accents and warm grey tones" },
+  kuzey: { name: "Kuzey", desc: "Adaçayı & meşe", colors: ["#7e9484", "#c9b799", "#f0ede5", "#33403a"], duo: ["#33403a", "#f1efe8"], en: "soft sage green, warm oak wood and off-white Scandinavian tones" },
+  gece: { name: "Gece", desc: "Lacivert & pirinç", colors: ["#22334a", "#c9a227", "#e9e4d8", "#141d2b"], duo: ["#22334a", "#eef0f4"], en: "deep navy blue with brass accents and warm grey tones" },
   pastel: { name: "Pastel", desc: "Pudra & adaçayı", colors: ["#d8a49b", "#aebfa8", "#f5eee9", "#7a6660"], duo: ["#8d6f68", "#f7f0eb"], en: "muted pastel pink, sage green and cream tones" },
-  mono:   { name: "Monokrom", desc: "Gri & tek vurgu", colors: ["#2b2b2b", "#8f8f8f", "#e8e8e8", "#b8502f"], duo: ["#2b2b2b", "#f2f2f2"], en: "monochrome greyscale with a single warm red accent" },
+  mono: { name: "Monokrom", desc: "Gri & tek vurgu", colors: ["#2b2b2b", "#8f8f8f", "#e8e8e8", "#b8502f"], duo: ["#2b2b2b", "#f2f2f2"], en: "monochrome greyscale with a single warm red accent" },
 };
 
 const STYLES = {
-  modern:      { name: "Modern", en: "contemporary modern" },
-  minimal:     { name: "Minimal", en: "refined minimalist" },
-  iskandinav:  { name: "İskandinav", en: "Scandinavian" },
+  modern: { name: "Modern", en: "contemporary modern" },
+  minimal: { name: "Minimal", en: "refined minimalist" },
+  iskandinav: { name: "İskandinav", en: "Scandinavian" },
   endustriyel: { name: "Endüstriyel", en: "industrial loft" },
-  akdeniz:     { name: "Akdeniz", en: "Mediterranean" },
+  akdeniz: { name: "Akdeniz", en: "Mediterranean" },
 };
 
 /* Plan türleri — her biri ayrı yüklenir, ayrı üretilir, ayrı pafta olur */
@@ -531,7 +531,7 @@ function buildPrompt(item) {
   switch (item.group) {
     case "tefris": {
       const floorCtx = item.floorEn ? `\n\nFLOOR CONTEXT: This drawing is the ${item.floorEn} plan of the building.` : "";
-      return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
+      return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls and doors cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
 
 ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
 - The source drawing is ground truth. Analyze it carefully and reproduce the wall layout EXACTLY: every wall, partition, door and window must keep its exact position, size, orientation and count.
@@ -567,6 +567,7 @@ STYLE:
 - Straight top-down orthographic camera, no perspective tilt, but walls have slight visible height and thickness, casting soft subtle shadows onto the floors — like a physical scale model photographed from above.
 - Light, airy, warm neutral palette overall: pale floors, cream-white wall tops, natural light wood door frames and furniture accents.
 - Fully furnished with realistic rendered furniture: upholstered beds with soft duvets and layered pillows, fabric sofas with cushions, wooden dining table with chairs, wardrobes, kitchen counters with sink and cooktop, WC, washbasin, bathtub — all with real material textures (linen, wood, ceramic).
+- Render ALL doors in the OPEN position: each door leaf stands open (swung about 90 degrees, following the swing direction drawn in the source plan), so every doorway reads as an open passage and room connections are clearly visible. Do not render any door closed, and do not remove the door leaves — they stay visible, just open.
 - Soft diffused ambient lighting, gentle realistic shadows, no harsh highlights.
 - Clean light grey-white background around the plan, no text labels, no dimensions.
 - High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}`;
