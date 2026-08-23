@@ -484,25 +484,25 @@ function buildPrompt(item) {
 ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
 - The source drawing is ground truth. Analyze it carefully and reproduce the wall layout EXACTLY: every wall, partition, door and window must keep its exact position, size, orientation and count.
 - Do NOT add, remove, move, resize or merge any wall, door, window or room. Do not invent openings that are not drawn.
-- Preserve the exact building footprint, including the SLANTED right-hand exterior wall — the outline is trapezoidal, NOT rectangular. Do not straighten it.
-- Keep the mirrored left/right symmetry of the two wings exactly as drawn.
+- Preserve the exact building footprint and outline geometry as drawn. If the outline is slanted, angled, trapezoidal, curved or irregular in ANY way, reproduce that geometry precisely — NEVER straighten, square up, simplify or "correct" it.
+- If the plan has symmetry, mirrored wings or repeating units, preserve that arrangement exactly as drawn; if it is asymmetrical, keep it asymmetrical. NEVER impose symmetry that is not drawn, and NEVER break symmetry that is.
 
 DOORS — STRICT RULES, ZERO TOLERANCE:
 - Before rendering, scan the ENTIRE plan and count every door-swing arc symbol. The render must contain EXACTLY that many door leaves — not one more, not one fewer.
 - Every drawn door-swing arc = one clearly visible door leaf, hinged on the drawn side, opening in the drawn swing direction, at the drawn width.
 - A drawn doorway must NEVER be rendered as blank wall, and NEVER as an empty opening without a door leaf. Conversely, never invent a door where no arc is drawn.
-- Pay special attention to the SMALL doors of toilets and bathrooms that are entered from inside bedrooms — these are the most commonly missed. Every bathroom and WC in this plan has exactly one entrance door; every single one must be rendered.
+- Pay special attention to the SMALL doors of toilets and bathrooms that are entered from inside bedrooms — these are the most commonly missed. Every bathroom and WC must have its drawn entrance door rendered; not a single one may be missing.
 - Every enclosed room must be reachable through its drawn door; no room may end up sealed off with no door.
-- Because the plan is mirrored, every door on the left wing has a counterpart on the right wing — if a door exists on one side, verify its mirrored twin exists too.
+- If the plan contains mirrored or repeated units, doors must appear consistently in every instance: for each door in one unit, verify that its counterpart exists in every mirrored or repeated twin unit.
 - Interior doors: muted clay-toned flat-panel wood, contemporary modern. Apartment entrance doors on the common corridor: slightly darker clay tone to distinguish them.
 - FINAL SELF-CHECK before output: go room by room (each bathroom, WC, bedroom, kitchen, apartment entrance) and confirm its door is present exactly as drawn. A single missing door makes the output invalid.
 
 FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture, plants, rugs or décor.
 
 SPATIAL LOGIC — COMMON AREA vs APARTMENTS:
-- This is one floor of a residential apartment building.
-- The COMMON CIRCULATION AREA consists of: the central core at the top (staircase + elevator shaft + the elevator lobby between them) and the long horizontal corridor running across the middle of the plan, onto which all apartment entrance doors open. Everything else is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
-- Materials must clearly distinguish common area from apartments.
+- This is one floor of a residential building.
+- Identify the COMMON CIRCULATION AREA from the drawing itself: staircases, elevator shafts, elevator lobbies and any shared corridors onto which the apartment entrance doors open — wherever they are located in the plan. Everything else is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
+- Materials must clearly distinguish the common circulation area from the private apartments.
 
 MATERIALS & PALETTE — warm terracotta, sand beige and muted clay tones, contemporary modern style:
 - Common corridor, elevator lobby and stair landing: large-format matte porcelain tile flooring in sand beige; stair treads in the same beige stone; muted clay-toned apartment entrance doors.
@@ -515,7 +515,6 @@ STYLE:
 - Straight top-down orthographic camera, no perspective tilt, but walls have slight visible height and thickness, casting soft subtle shadows onto the floors — like a physical scale model photographed from above.
 - Light, airy, warm neutral palette overall: pale floors, cream-white wall tops, natural light wood door frames and furniture accents.
 - Fully furnished with realistic rendered furniture: upholstered beds with soft duvets and layered pillows, fabric sofas with cushions, wooden dining table with chairs, wardrobes, kitchen counters with sink and cooktop, WC, washbasin, bathtub — all with real material textures (linen, wood, ceramic).
-- Small styling details: potted plants, area rugs under seating groups, muted olive-green accent pillows.
 - Soft diffused ambient lighting, gentle realistic shadows, no harsh highlights.
 - Clean light grey-white background around the plan, no text labels, no dimensions.
 - High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}`;
