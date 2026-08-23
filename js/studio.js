@@ -521,10 +521,23 @@ STYLE:
     }
     case "vaziyet":
       return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
-    case "perspektif": {
-      const fl = item.floorEn || "floor";
-      return `Using the first attached image — the schematic plan of the ${fl} — as the exact layout reference, create a 3D cutaway floor plan visualization (bird's-eye axonometric view) of that floor: walls raised and cut at about 1 meter height with white cut surfaces, interior fully furnished in a ${s.en} style, materials and colors following a ${p.en} palette, soft daylight and subtle shadows, pure white background, high-end archviz presentation quality. If a second image is attached, it is the colored and furnished 2D presentation version of the SAME floor plan: treat it as the primary reference and match its room colors, furniture placement and material choices exactly, so the perspective reads as the 3D counterpart of that drawing. The room layout, doors and windows must match the source plan exactly.`;
-    }
+    case "perspektif":
+      return `Convert the attached top-down rendered floor plan into an ANGLED ISOMETRIC 3D cutaway view of the same floor — a dollhouse-style axonometric render viewed from an elevated corner angle (approximately 30-45 degrees), the kind used in high-end real estate presentations.
+
+CAMERA & FORM:
+- Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
+- Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
+- Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
+- Soft realistic lighting from above, gentle ambient occlusion in room corners, subtle shadows cast by walls and furniture.
+- Clean light grey-white background, no text labels.
+
+ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
+- The wall layout, room shapes, proportions and apartment boundaries must remain EXACTLY as in the source image. Do not add, remove, move or resize any wall.
+- Every door and window stays in its exact position with the same width. Do not add or remove any.
+- Every piece of furniture stays in the SAME position, SAME orientation and SAME size as in the source — no additions, no removals, no rearranging, no restyling.
+- All floor materials remain identical to the source: the same pale oak wood in bedrooms and living rooms, the same sand-beige ceramic tiles in kitchens, bathrooms, foyers, halls and balconies, and the same seamless grey epoxy in the common stair/elevator core.
+- The color palette, furniture styling and overall atmosphere must match the source image exactly.
+- This is the SAME floor plan and SAME render, only rotated into an isometric perspective — not a reinterpretation.`;
     case "kesit":
       return `Redraw the attached schematic building section as a clean architectural presentation section drawing: cut structural elements (slabs, walls, foundations, ground) as solid black poché, interior spaces washed in light ${p.en} accent tones, simple furniture hints and a few flat human silhouettes for scale, level lines with subtle annotations, plain white background, thin precise linework, flat 2D vector style. Keep the number of floors and the overall proportions exactly as in the source. Presentation-board quality.`;
     case "render":
@@ -581,13 +594,13 @@ function rebuildOutputs() {
       id: "perspektif-" + k, group: "perspektif", floorEn: t.en,
       title: t.name.replace(" Planı", " Perspektif Planı"),
       sub: "3B kesit-perspektif",
-      base: () => state.inputs.plans[k].dataUrl,
+      base: () => (state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl),
+      // Perspektif, YALNIZCA üretilen boyalı plan üzerinden oluşturulur.
       sources: () => {
-        const src = [state.inputs.plans[k].dataUrl];
         const boyama = state.outputs["tefris-" + k];
-        if (boyama?.status === "hazir" && boyama.result) src.push(boyama.result);
-        return src;
+        return boyama?.status === "hazir" && boyama.result ? [boyama.result] : [];
       },
+      missingMsg: "Önce bu katın boyalı planı üretilmeli — perspektif, üretilen boyalı plan üzerinden oluşturulur.",
     });
   }
 
@@ -779,7 +792,9 @@ async function generateItem(id, silent = false) {
   renderOutputs();
   try {
     if (hasAiAccess()) {
-      it.result = await callGemini(it.prompt, it.sources());
+      const srcs = it.sources();
+      if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
+      it.result = await callGemini(it.prompt, srcs);
       it.status = "hazir";
     } else {
       it.result = await stylizedPreview(it.base());
