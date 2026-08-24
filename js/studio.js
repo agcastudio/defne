@@ -555,11 +555,6 @@ DOORS — STRICT RULES, ZERO TOLERANCE:
 
 FURNITURE: render ONLY what is drawn — beds, wardrobes, sofas, armchairs, dining tables with chairs, kitchen counters with sinks and cooktops, toilets, washbasins, bathtubs/showers — each in its drawn position and orientation. No extra furniture.
 
-SPATIAL LOGIC — COMMON AREA vs APARTMENTS:
-- This is one floor of a residential apartment building.
-- Identify the COMMON CIRCULATION AREA from the uploaded drawing itself: staircases, elevator shafts, elevator lobbies and the shared corridors onto which the apartment entrance doors open — wherever they are located in the plan. Everything else is private apartment interior (living rooms, bedrooms, kitchens, bathrooms).
-- Materials must clearly distinguish common area from apartments.
-
 MATERIALS & PALETTE — warm terracotta, sand beige and muted clay tones, contemporary modern style:
 - Common corridor, elevator lobby and stair landing: large-format matte porcelain tile flooring in sand beige; stair treads in the same beige stone; muted clay-toned apartment entrance doors.
 - Apartment living rooms and bedrooms: warm light-oak wood flooring; sofas and beds upholstered in terracotta and muted clay fabrics; sand-beige walls.
