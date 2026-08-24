@@ -530,7 +530,6 @@ function bindApi() {
 function buildPrompt(item) {
   const p = PALETTES[state.palette];
   const s = STYLES[state.style];
-  const kat = state.info.kat ? `The building has ${state.info.kat} floors. ` : "";
 
   switch (item.group) {
     case "tefris": {
@@ -593,8 +592,22 @@ ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
 - This is the SAME floor plan and SAME render, only rotated into an isometric perspective — not a reinterpretation.`;
     case "kesit":
       return `Redraw the attached schematic building section as a clean architectural presentation section drawing: cut structural elements (slabs, walls, foundations, ground) as solid black poché, interior spaces washed in light ${p.en} accent tones, simple furniture hints and a few flat human silhouettes for scale, level lines with subtle annotations, plain white background, thin precise linework, flat 2D vector style. Keep the number of floors and the overall proportions exactly as in the source. Presentation-board quality.`;
-    case "render":
-      return `Based on the attached architectural drawings (floor plans, schematic section and/or site plan, as provided), imagine a plausible building massing and produce a photorealistic exterior architectural visualization: ${s.en} architecture, facade materials and accents following a ${p.en} palette, ${kat}golden-hour lighting, landscaped surroundings with trees, soft shadows and a few people for scale, eye-level camera with slight wide angle, high-end archviz render quality.`;
+    case "render": {
+      const katRule = state.info.kat
+        ? `- FLOOR COUNT — taken from the project information: the building has "${state.info.kat}" floors (Turkish floor naming: "Bodrum" = basement level below grade, "Zemin" = ground floor, "Ara" / "Normal" = typical upper floors, "Çatı" = roof level; e.g. "Zemin + 3" means a ground floor plus 3 upper floors). Work out the exact number of ABOVE-GROUND storeys from this and build the facade with EXACTLY that many visible floor levels — count the horizontal rows of windows/balconies to verify. Not one more, not one fewer. Basement levels stay below grade and are not visible on the facade.`
+        : `- FLOOR COUNT: no floor count is given in the project information; render a realistic low-to-mid-rise residential building with a clearly countable number of storeys.`;
+      return `The attached image is the rendered top-down floor plan (colored and furnished) of one full storey of this building. Use it as the DIRECT BASE for the design and produce a PHOTOREALISTIC exterior architectural visualization of the completed building.
+
+ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
+- FOOTPRINT: the building's ground footprint must follow the OUTER OUTLINE of the attached plan exactly — same overall shape, same proportions, same corner geometry. If the outline is slanted, angled, L/U-shaped, stepped or irregular in ANY way, the built mass must show that same geometry. NEVER simplify or square it up into a plain box, and never change its proportions.
+${katRule}
+- FACADE FROM THE PLAN: derive the facade layout from the plan — place generous windows where the plan shows living rooms and bedrooms along the outer edge, and place balconies on the facade exactly where the plan shows balconies/terraces, repeated on the residential floors. The building entrance sits on the side where the plan's common core (stair / elevator hall) reaches the outer edge.
+- FINAL SELF-CHECK before output: recount the storeys on the facade and re-compare the massing footprint with the plan's outer boundary. A wrong floor count or a changed footprint makes the output invalid.
+
+STYLE & MATERIALS: ${s.en} architecture; facade materials and accents following a ${p.en} palette — warm sand-beige plaster and natural stone, terracotta and muted clay accent panels, natural wood soffits at balconies and the entrance canopy, slim dark window frames, glass balcony railings.
+
+PHOTOREALISM — this must read as a real photograph of a finished building, not an illustration: golden-hour sunlight with physically plausible soft shadows and reflections, subtle material texture (plaster grain, stone joints, glass reflections), landscaped surroundings with trees and low planting, paved sidewalk and street, a few people and a parked car for scale, eye-level camera from across the street with a slight wide angle showing two facades in a three-quarter view, sharp architectural detail, high-end archviz quality. No text, labels or watermarks.`;
+    }
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
       const katEnList = (t.katlar || []).map((v) => KAT_OPTIONS.find((o) => o.value === v)?.en).filter(Boolean);
@@ -673,11 +686,21 @@ function rebuildOutputs() {
   if (state.inputs.kesit) {
     put({ id: "kesit", group: "kesit", title: "Sunum Kesiti", sub: "Şematik kesitten", base: () => state.inputs.kesit.dataUrl, sources: () => [state.inputs.kesit.dataUrl] });
   }
-  if (prim || plans.vaziyet) {
+  if (prim) {
     put({
-      id: "render", group: "render", title: "Dış Mekân Render", sub: "Tahmini kütle",
-      base: () => (state.inputs.kesit || primaryPlan() || plans.vaziyet).dataUrl,
-      sources: () => [primaryPlan()?.dataUrl, state.inputs.kesit?.dataUrl, plans.vaziyet?.dataUrl].filter(Boolean),
+      id: "render", group: "render", title: "Dış Mekân Render", sub: "Boyalı plandan fotogerçekçi dış görsel",
+      base: () => {
+        const k = primaryPlanKey();
+        return state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl;
+      },
+      // Girdi: ana katın ÜRETİLMİŞ boyalı planı (perspektif/tipoloji ile aynı mantık);
+      // kat sayısı prompt'a proje künyesindeki "Kat Sayısı" alanından eklenir.
+      sources: () => {
+        const k = primaryPlanKey();
+        const boyama = state.outputs["tefris-" + k];
+        return boyama?.status === "hazir" && boyama.result ? [boyama.result] : [];
+      },
+      missingMsg: "Önce ana katın boyalı planı üretilmeli — dış render, boyalı plan altlık alınarak oluşturulur.",
     });
   }
   for (const t of state.typologies) {
@@ -963,7 +986,7 @@ function buildPageDefs() {
     }
   }
   add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true, note: i.kesitNot });
-  add("render", "Dış Mekân Görselleştirmesi", { cap: "Tahmini kütle çalışması" });
+  add("render", "Dış Mekân Görselleştirmesi", { cap: "Boyalı plan altlıklı kütle çalışması" });
   for (const t of state.typologies) {
     if (!t.name) continue;
     add("tip-" + t.id, `Tipoloji — ${t.name}`, {
