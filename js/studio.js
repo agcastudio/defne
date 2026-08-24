@@ -65,7 +65,6 @@ const KAT_OPTIONS = [
 ];
 
 const LS_KEY = "pafta_api_key";
-const LS_MODEL = "pafta_model";
 const LS_INFO = "pafta_info";
 const DEFAULT_MODEL = "gemini-3-pro-image-preview"; // Nano Banana Pro
 const MAX_IMG_DIM = 1568;
@@ -506,7 +505,8 @@ const PROXY_URL = (CFG.proxyUrl || "").trim().replace(/\/+$/, "");
 const EMBEDDED_MODEL = (CFG.model || "").trim();
 
 function apiKey() { return EMBEDDED_KEY || $("#fApiKey").value.trim(); }
-function modelName() { return EMBEDDED_MODEL || $("#fModel").value.trim() || DEFAULT_MODEL; }
+/* Model sabittir: yalnızca Nano Banana Pro kullanılır (config.js'ten farklı model pinlenebilir). */
+function modelName() { return EMBEDDED_MODEL || DEFAULT_MODEL; }
 function hasAiAccess() { return !!(PROXY_URL || apiKey()); }
 
 function bindApi() {
@@ -517,17 +517,7 @@ function bindApi() {
     return;
   }
   $("#fApiKey").value = localStorage.getItem(LS_KEY) || "";
-  const sel = $("#fModel");
-  const saved = localStorage.getItem(LS_MODEL) || DEFAULT_MODEL;
-  if (![...sel.options].some((o) => o.value === saved)) {
-    const opt = document.createElement("option");
-    opt.value = saved;
-    opt.textContent = saved + " (özel)";
-    sel.appendChild(opt);
-  }
-  sel.value = saved;
   $("#fApiKey").addEventListener("input", () => localStorage.setItem(LS_KEY, apiKey()));
-  sel.addEventListener("change", () => localStorage.setItem(LS_MODEL, modelName()));
 }
 
 /* ============================================================
@@ -813,7 +803,10 @@ async function callGemini(promptText, dataUrls) {
       headers: reqHeaders,
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+          imageConfig: { imageSize: "4K" }, // Nano Banana Pro: 4K çıktı
+        },
       }),
     });
   } catch {

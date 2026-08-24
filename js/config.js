@@ -38,8 +38,7 @@ window.PAFTA_CONFIG = {
   // 3) Açık metin anahtar (yalnızca kendi bilgisayarınızda!)
   apiKey: "",
 
-  // Boş bırakılırsa arayüzdeki model seçimi kullanılır.
-  // Sabitlemek için: "gemini-3-pro-image-preview" (Nano Banana Pro)
-  // veya "gemini-2.5-flash-image" (Nano Banana)
+  // Model sabittir: Nano Banana Pro ("gemini-3-pro-image-preview", 4K çıktı).
+  // Farklı bir model pinlemek isterseniz buraya yazın; boş = Nano Banana Pro.
   model: "",
 };

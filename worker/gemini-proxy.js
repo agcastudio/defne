@@ -22,8 +22,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const ALLOWED_MODELS = [
-  "gemini-3-pro-image-preview",
-  "gemini-2.5-flash-image",
+  "gemini-3-pro-image-preview", // Nano Banana Pro — sitenin kullandığı tek model
 ];
 
 export default {

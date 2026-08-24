@@ -40,9 +40,9 @@ Kurulum gerekmez. İki seçenek:
 
 ## Yapay zekâ görsel üretimi
 
-- Üretim, varsayılan olarak **Nano Banana Pro** (`gemini-3-pro-image-preview`,
-  Gemini 3 Pro Image) modeliyle yapılır; 3. adımdan daha hızlı/ekonomik
-  **Nano Banana** (`gemini-2.5-flash-image`) modeline geçilebilir.
+- Üretim yalnızca **Nano Banana Pro** (`gemini-3-pro-image-preview`,
+  Gemini 3 Pro Image) modeliyle ve **4K** çıktı ayarıyla yapılır; model
+  seçimi yoktur (gerekirse `js/config.js` → `model` alanından pinlenebilir).
 - API anahtarı: <https://aistudio.google.com/apikey>. Kullanım şekilleri
   (öncelik sırasıyla, ayrıntılar [`js/config.js`](js/config.js) içinde):
   1. **Ara sunucu / proxy (en güvenlisi):** [`worker/gemini-proxy.js`](worker/gemini-proxy.js)
@@ -55,7 +55,7 @@ Kurulum gerekmez. İki seçenek:
   4. **Ziyaretçinin kendi anahtarı:** hepsi boşsa 3. adımda anahtar alanı
      görünür; girilen anahtar o tarayıcının localStorage'ında kalır.
 - (Nano Banana Pro bazı hesaplarda faturalandırma gerektirebilir; kota hatası
-  alırsanız Nano Banana'ya geçin.)
+  alırsanız Google AI Studio'dan faturalandırmayı etkinleştirin.)
 
 > **"API key was reported as leaked" hatası:** GitHub, herkese açık depoları
 > tarar ve bulduğu açık metin `AIza...` anahtarlarını Google'a bildirir; Google
