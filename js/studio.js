@@ -652,8 +652,9 @@ async function prepareTefris(it) {
   const k = it.floorKey;
   let a = null;
   try { a = await ensureAnalysis(k); } catch { /* analizsiz devam */ }
-  // Kapı bloğu analiz durumuna göre buildPrompt içinde, dış hat bloğu her zaman eklenir
-  it.prompt = buildPrompt(it) + "\n\n" + OUTLINE_ANNOT_EN;
+  // Kapı bloğu analiz durumuna göre buildPrompt içinde; dış hat + oran koruması
+  // + işaret temizliği her zaman eklenir
+  it.prompt = buildPrompt(it) + "\n\n" + OUTLINE_ANNOT_EN + "\n\n" + ASPECT_ANNOT_EN + "\n\n" + ANNOT_CLEAN_EN;
   it._verify = { source: state.inputs.plans[k].dataUrl, doors: a?.doors || [] };
   // Mavi dış hat bandı analizsiz de çizilebilir (yerel hesap); kapılar varsa halkalar da eklenir
   return [await PaftaAnalysis.annotateDoors(state.inputs.plans[k].dataUrl, a?.doors || [], true)];
@@ -668,7 +669,7 @@ async function prepareTip(it) {
   const unit = a ? pickUnit(a, t) : null;
   if (unit) {
     const iso = await PaftaAnalysis.isolateUnit(state.inputs.plans[k].dataUrl, unit, a.doors);
-    it.prompt = TIP_UNIT_PROMPT + "\n\n" + OUTLINE_ANNOT_EN;
+    it.prompt = TIP_UNIT_PROMPT + "\n\n" + OUTLINE_ANNOT_EN + "\n\n" + ASPECT_ANNOT_EN + "\n\n" + ANNOT_CLEAN_EN;
     it._verify = { source: iso.dataUrl, doors: iso.doors };
     return [await PaftaAnalysis.annotateDoors(iso.dataUrl, iso.doors, true)];
   }
@@ -686,6 +687,16 @@ async function prepareTip(it) {
    Şablonları değiştirmek için YALNIZCA bu fonksiyonu düzenleyin;
    palet/stil/kat değişkenleri otomatik yerleştirilir.
    ============================================================ */
+
+/* Oran koruması: uzun/ince planlar çıktı tuvaline sığdırılırken esnetilmesin */
+const ASPECT_ANNOT_EN = `ASPECT RATIO — CRITICAL:
+- The plan's PROPORTIONS are ground truth: reproduce its width-to-height ratio EXACTLY as drawn. NEVER stretch, squash, elongate or compress the plan to fill the output frame — a long narrow plan stays long and narrow.
+- If the output canvas is wider or taller than the plan, keep the plan at its TRUE proportions, centered, and fill the leftover space with the clean light background. Empty margins are correct; a stretched or re-proportioned plan is INVALID.`;
+
+/* İşaretlerin (kırmızı halka + mavi bant) çıktıya sızmasını engelleyen blok */
+const ANNOT_CLEAN_EN = `ANNOTATION CLEANUP — CRITICAL:
+- The RED CIRCLES and the THICK BLUE BAND drawn on the input are ANALYSIS ANNOTATIONS, not architecture. The output must contain ZERO red circles, ZERO blue bands or blue boundary lines, and no colored marking of any kind copied from the input.
+- FINAL SELF-CHECK before output: scan the whole image — if even a fragment of a red ring or a blue line is visible anywhere, the output is INVALID; remove it and render the underlying architecture cleanly instead.`;
 
 /* Dış hat bantlı üretimlerde prompt'a eklenen blok */
 const OUTLINE_ANNOT_EN = `OUTLINE ANNOTATION — CRITICAL:
@@ -1038,12 +1049,34 @@ function setGenStatus(msg) { $("#genStatus").textContent = msg; }
 
 /* --- Gemini çağrısı --- */
 
+/* Nano Banana Pro'nun desteklediği çıktı oranları; girdiye en yakın olan seçilir.
+   Oran belirtilmezse model kendi tuvalini seçip planı ÇEKİŞTİREREK sığdırabiliyor. */
+const NB_ASPECTS = [
+  ["21:9", 21 / 9], ["16:9", 16 / 9], ["3:2", 3 / 2], ["4:3", 4 / 3], ["5:4", 5 / 4],
+  ["1:1", 1], ["4:5", 4 / 5], ["3:4", 3 / 4], ["2:3", 2 / 3], ["9:16", 9 / 16],
+];
+function nearestAspect(w, h) {
+  const r = w / Math.max(1, h);
+  let best = "1:1", dist = Infinity;
+  for (const [name, v] of NB_ASPECTS) {
+    const d = Math.abs(Math.log(r / v));
+    if (d < dist) { dist = d; best = name; }
+  }
+  return best;
+}
+
 async function callGemini(promptText, dataUrls) {
   const parts = [{ text: promptText }];
   for (const u of dataUrls) {
     const { mimeType, data } = await toJpegBase64(u);
     parts.push({ inlineData: { mimeType, data } });
   }
+  // Çıktı tuvali ilk kaynak görselin oranına sabitlenir (esnetmeyi kökten önler)
+  let aspect = null;
+  try {
+    const first = await loadImage(dataUrls[0]);
+    aspect = nearestAspect(first.naturalWidth || first.width, first.naturalHeight || first.height);
+  } catch { /* oran seçilemezse parametre gönderilmez */ }
   // Proxy tanımlıysa istek ona gider; anahtar tarayıcıya hiç inmez.
   const url = PROXY_URL
     ? `${PROXY_URL}/${encodeURIComponent(modelName())}`
@@ -1059,7 +1092,8 @@ async function callGemini(promptText, dataUrls) {
         contents: [{ parts }],
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: { imageSize: "4K" }, // Nano Banana Pro: 4K çıktı
+          // Nano Banana Pro: 4K çıktı + girdi oranına sabitlenmiş tuval
+          imageConfig: { imageSize: "4K", ...(aspect ? { aspectRatio: aspect } : {}) },
         },
       }),
     });
