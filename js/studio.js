@@ -1082,8 +1082,8 @@ async function callGemini(promptText, dataUrls) {
         contents: [{ parts }],
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
-          // Nano Banana Pro: 4K çıktı + girdi oranına sabitlenmiş tuval
-          imageConfig: { imageSize: "4K", ...(aspect ? { aspectRatio: aspect } : {}) },
+          // Nano Banana Pro: 1K çıktı (kota/maliyet dostu) + girdi oranına sabit tuval
+          imageConfig: { imageSize: "1K", ...(aspect ? { aspectRatio: aspect } : {}) },
         },
       }),
     });
