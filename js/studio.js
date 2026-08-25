@@ -773,10 +773,12 @@ STYLE:
     case "vaziyet":
       return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
     case "perspektif":
-      return `Convert the attached top-down rendered floor plan into an ANGLED ISOMETRIC 3D cutaway view of the same floor — a dollhouse-style axonometric render viewed from an elevated corner angle (approximately 30-45 degrees), the kind used in high-end real estate presentations.
+      return `Convert the attached top-down rendered floor plan into a CORNER-VIEW isometric 3D cutaway of the same floor — a dollhouse-style axonometric render seen DIAGONALLY FROM ONE CORNER of the building, the kind used in high-end real estate presentations.
 
-CAMERA & FORM:
-- The camera is positioned at ONE CORNER of the building, elevated about 30-45 degrees, looking diagonally ACROSS the plan — a true three-quarter corner view where TWO adjacent sides are clearly visible. NEVER render a straight top-down view or a frontal view; the diagonal corner angle is mandatory.
+CAMERA — THE CORNER VIEW IS MANDATORY:
+- Place the camera at ONE CORNER of the building, rotated approximately 45 degrees horizontally so the view looks along the plan's DIAGONAL, and elevated approximately 35 degrees above the horizon.
+- The corner nearest the camera points toward the viewer; TWO adjacent sides of the building are clearly visible AT THE SAME TIME, one receding to the left and one to the right.
+- The vertical faces of the cut walls along those two sides must be visible. If the output looks like the flat top-down source image viewed straight from above, or shows only one side frontally, it is INVALID.
 - Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
 - Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
 - Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
@@ -809,10 +811,12 @@ STYLE & MATERIALS: ${s.en} architecture; facade materials and accents following 
 PHOTOREALISM — this must read as a real photograph of a finished building, not an illustration: golden-hour sunlight with physically plausible soft shadows and reflections, subtle material texture (plaster grain, stone joints, glass reflections), landscaped surroundings with trees and low planting, paved sidewalk and street, a few people and a parked car for scale, eye-level camera from across the street with a slight wide angle showing two facades in a three-quarter view, sharp architectural detail, high-end archviz quality. No text, labels or watermarks.`;
     }
     case "tipper":
-      return `Convert the attached top-down rendered plan of a SINGLE apartment unit into an ANGLED ISOMETRIC 3D cutaway view of the same unit — a dollhouse-style axonometric render viewed from an elevated corner angle (approximately 30-45 degrees), the kind used in high-end real estate presentations.
+      return `Convert the attached top-down rendered plan of a SINGLE apartment unit into a CORNER-VIEW isometric 3D cutaway of the same unit — a dollhouse-style axonometric render seen DIAGONALLY FROM ONE CORNER of the unit, the kind used in high-end real estate presentations.
 
-CAMERA & FORM:
-- The camera is positioned at ONE CORNER of the unit, elevated about 30-45 degrees, looking diagonally ACROSS the unit — a true three-quarter corner view where TWO adjacent sides of the unit are clearly visible. NEVER render a straight top-down view, a frontal view or a flat elevation; the diagonal corner angle is mandatory.
+CAMERA — THE CORNER VIEW IS MANDATORY:
+- Place the camera at ONE CORNER of the unit, rotated approximately 45 degrees horizontally so the view looks along the unit's DIAGONAL, and elevated approximately 35 degrees above the horizon.
+- The corner nearest the camera points toward the viewer; TWO adjacent sides of the unit are clearly visible AT THE SAME TIME, one receding to the left and one to the right.
+- The vertical faces of the cut walls along those two sides must be visible. If the output looks like the flat top-down source image viewed straight from above, or shows only one side frontally, it is INVALID.
 - Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
 - Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
 - Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
@@ -938,22 +942,8 @@ function rebuildOutputs() {
       },
       missingMsg: "Önce ilgili katın boyalı planı üretilmeli — tipoloji planı, kat boyaması üzerinden ayrıştırılır.",
     });
-    // Tipin 3B kesit-perspektifi — üretilen tip planı üzerinden oluşturulur
-    put({
-      id: "tipper-" + tt.id, group: "tipper",
-      title: `Tipoloji Perspektif — ${tt.name}`, sub: "3B kesit-perspektif",
-      base: () => {
-        const r = state.outputs["tip-" + tt.id]?.result;
-        if (r) return r;
-        const k = tipSourceFloorKey(tt);
-        return k ? state.inputs.plans[k].dataUrl : null;
-      },
-      sources: () => {
-        const tip = state.outputs["tip-" + tt.id];
-        return tip?.status === "hazir" && tip.result ? [tip.result] : [];
-      },
-      missingMsg: "Önce bu tipin planı üretilmeli — perspektif, üretilen tip planı üzerinden oluşturulur.",
-    });
+    // Not: tipin 3B perspektifi ayrı bir üretim kalemi değildir; tip planı
+    // üretilince otomatik türetilir ve çıktının .persp alanında saklanır.
   }
 
   state.outputs = next;
@@ -1187,6 +1177,14 @@ async function generateItem(id, silent = false) {
           } catch { /* ilk sonuç kalır */ }
         }
       }
+      // Tipoloji planı üretilince 3B perspektifi otomatik türetilir (pafta için)
+      if (it.prep === "tip" && it.result) {
+        setGenStatus(`${it.title}: 3B kesit-perspektif otomatik üretiliyor…`);
+        it.persp = null;
+        try {
+          it.persp = await callGemini(buildPrompt({ group: "tipper" }), [it.result]);
+        } catch { /* perspektifsiz devam — paftada not gösterilir */ }
+      }
     } else {
       it.result = await stylizedPreview(it.base());
       it.status = "onizleme";
@@ -1285,7 +1283,7 @@ function buildPageDefs() {
     defs.push({
       title: `Tipoloji — ${t.name}`, src: o.src, cap: i.olcek || "",
       note: "", scale: true, north: true, preview: !!o.preview, raw: false,
-      tipo: t, persp: outImg("tipper-" + t.id)?.src || null,
+      tipo: t, persp: state.outputs["tip-" + t.id]?.persp || null,
     });
   }
   return defs;
@@ -1362,7 +1360,7 @@ function renderPages() {
            <aside class="tp-left">
              <div class="tp-persp">${d.persp
                ? `<img src="${d.persp}" alt="Tipoloji perspektifi">`
-               : `<div class="tp-empty">3B perspektif üretilmedi — 3. adımda "Tipoloji Perspektif" çıktısını üretin</div>`}</div>
+               : `<div class="tp-empty">3B perspektif üretilemedi — 3. adımda tip planını yeniden üretin</div>`}</div>
              <div class="tp-info">
                <span class="sn-head">Tipoloji Bilgileri</span>
                ${tipoTableHtml(d.tipo)}
@@ -1424,11 +1422,18 @@ $("#btnDownloadAll").addEventListener("click", async () => {
   const ready = state.order.filter((id) => state.outputs[id]?.result);
   if (!ready.length) { toast("İndirilecek görsel yok — önce 3. adımda üretim yapın.", true); return; }
   const base = slug(state.info.projeAdi);
+  let count = 0;
   for (const id of ready) {
     downloadDataUrl(state.outputs[id].result, `${base}-${id}`);
+    count++;
     await new Promise((r) => setTimeout(r, 350));
+    if (state.outputs[id].persp) { // tipin otomatik üretilen 3B perspektifi
+      downloadDataUrl(state.outputs[id].persp, `${base}-${id}-perspektif`);
+      count++;
+      await new Promise((r) => setTimeout(r, 350));
+    }
   }
-  toast(`${ready.length} görsel indirildi.`);
+  toast(`${count} görsel indirildi.`);
 });
 
 /* ============================================================
