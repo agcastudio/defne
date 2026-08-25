@@ -350,11 +350,14 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     return { units: list, common, w: W, h: H };
   }
 
-  /* Bina/daire dış hattını mavi bant olarak çizen katman (doğal ölçekte) */
-  function outlineLayer(img) {
+  /* Bina/daire dış hattını mavi bant olarak çizen katman (doğal ölçekte).
+     fromRender=true: kaynak çizim değil boyalı render ise kontur, kenar-medyan
+     arka plan ayrımıyla (buildingFromRender) çıkarılır. */
+  function outlineLayer(img, fromRender = false) {
     const S = scaledData(img, 1000);
-    const ink = inkMask(S.data, S.w, S.h);
-    const m = buildingFromInk(ink, S.w, S.h);
+    const m = fromRender
+      ? buildingFromRender(S.data, S.w, S.h)
+      : buildingFromInk(inkMask(S.data, S.w, S.h), S.w, S.h);
     const e = Math.max(2, Math.round(0.005 * Math.max(S.w, S.h)));
     const dil = dilate(m, S.w, S.h, e);
     const ero = erode(m, S.w, S.h, e);
@@ -370,7 +373,8 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     return ec;
   }
 
-  /* ---- İşaretleme: kırmızı kapı halkaları + (isteğe bağlı) mavi dış hat bandı ---- */
+  /* ---- İşaretleme: kırmızı kapı halkaları + (isteğe bağlı) mavi dış hat bandı ----
+     withOutline: false | true ("ink" — çizgi kaynaklı) | "render" (boyalı görsel) */
   async function annotateDoors(dataUrl, doors, withOutline = false) {
     const img = await loadImg(dataUrl);
     const c = makeCanvas(img.naturalWidth, img.naturalHeight);
@@ -379,7 +383,7 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     ctx.fillRect(0, 0, c.width, c.height);
     ctx.drawImage(img, 0, 0);
     if (withOutline) {
-      try { ctx.drawImage(outlineLayer(img), 0, 0, c.width, c.height); } catch { /* dış hat kritik değil */ }
+      try { ctx.drawImage(outlineLayer(img, withOutline === "render"), 0, 0, c.width, c.height); } catch { /* dış hat kritik değil */ }
     }
     ctx.strokeStyle = "#e11d1d";
     ctx.lineWidth = Math.max(3, 0.004 * Math.max(c.width, c.height));

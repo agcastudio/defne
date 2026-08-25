@@ -1,0 +1,13 @@
+# Yerel geliştirme / kişisel dosyalar — depoya girmez
+flux-demo/
+.claude/
+örnek/
+Prompt/
+prompt1.docx
+New Metin Belgesi.txt
+
+# Sistem / geçici
+Thumbs.db
+Desktop.ini
+*.log
+.env

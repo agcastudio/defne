@@ -681,6 +681,17 @@ async function prepareTip(it) {
   return srcs;
 }
 
+/* Dış render: boyalı planın kendi taban konturu mavi bantla işaretlenip
+   "kütle tam bu sınıra oturacak" talimatıyla gönderilir. */
+async function prepareRender(it) {
+  const srcs = it.sources();
+  if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
+  it.prompt = buildPrompt(it) + "\n\n" + RENDER_OUTLINE_EN + "\n\n" + ANNOT_CLEAN_EN;
+  it._verify = null; // dış görselde plan-doğrulaması uygulanamaz
+  const marked = await PaftaAnalysis.annotateDoors(srcs[0], [], "render");
+  return [marked, ...srcs.slice(1)];
+}
+
 /* ============================================================
    PROMPT ŞABLONLARI — SABİT
    Site kullanıcıları promptları göremez ve düzenleyemez.
@@ -692,6 +703,12 @@ async function prepareTip(it) {
 const ASPECT_ANNOT_EN = `ASPECT RATIO — CRITICAL:
 - The plan's PROPORTIONS are ground truth: reproduce its width-to-height ratio EXACTLY as drawn. NEVER stretch, squash, elongate or compress the plan to fill the output frame — a long narrow plan stays long and narrow.
 - If the output canvas is wider or taller than the plan, keep the plan at its TRUE proportions, centered, and fill the leftover space with the clean light background. Empty margins are correct; a stretched or re-proportioned plan is INVALID.`;
+
+/* Dış render: boyalı plan üzerindeki mavi bant = bina taban sınırı */
+const RENDER_OUTLINE_EN = `FOOTPRINT ANNOTATION — CRITICAL:
+- The thick BLUE band drawn on the attached floor plan traces the building's EXACT ground footprint boundary. It is an annotation only — do NOT render the band itself.
+- The building mass must stand EXACTLY on this footprint: every notch, step, angle and protrusion of the blue boundary must appear in the built form at ground level. Nothing may be built outside the band, nothing inside it may be omitted, and it must NEVER be simplified into a plain box.
+- Before finishing, compare the massing's ground outline with the blue band segment by segment.`;
 
 /* İşaretlerin (kırmızı halka + mavi bant) çıktıya sızmasını engelleyen blok */
 const ANNOT_CLEAN_EN = `ANNOTATION CLEANUP — CRITICAL:
@@ -771,14 +788,35 @@ STYLE:
 - High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}${doorAnnot}`;
     }
     case "vaziyet":
-      return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
+      return `Redraw the attached schematic site plan as a refined architectural PRESENTATION SITE PLAN in a flat, top-down vector-illustration style.
+
+STYLE:
+- Flat orthographic top-down view; clean, thin, precise linework — no perspective, no 3D tilt.
+- Building footprints rendered as ROOF PLANS: warm off-white/cream roofs with fine ridge and slope lines, and a subtle soft drop shadow toward the lower-right so the masses read clearly.
+- Ground plane in warm sand-beige; pedestrian paths in light terracotta paving; vehicle roads in soft warm grey with thin white edge lines.
+- Landscape in a ${p.en} scheme: muted sage-green lawn areas with delicate flat texture; trees as top-view circular canopies in two or three sage/olive tones with small soft shadows; low planting as fine dotted texture.
+- Parking areas with thin white bay lines; water (if drawn) as calm pale blue with fine ripple lines.
+- The parcel/property boundary as a clear dashed dark line following its drawn course exactly.
+- Calm, elegant, high-end presentation-board aesthetic; clean white background outside the site; no text, labels or dimensions.
+
+ABSOLUTE FIDELITY RULES — HIGHEST PRIORITY:
+- The drawing is ground truth. Every building footprint keeps its EXACT position, size, shape, rotation and count — never add, remove, merge, move, resize or straighten any building.
+- Roads, paths and parking stay exactly on their drawn alignments; the parcel boundary polygon is reproduced point by point; the drawn north arrow's direction is respected.
+- Preserve the site's overall layout, spacing and proportions precisely — never rearrange or "improve" the composition.
+- Trees and landscape may be ADDED only where the drawing shows empty/green ground; they must never cover, replace or displace any drawn element.
+
+${ASPECT_ANNOT_EN}`;
     case "perspektif":
-      return `Convert the attached top-down rendered floor plan into a CORNER-VIEW isometric 3D cutaway of the same floor — a dollhouse-style axonometric render seen DIAGONALLY FROM ONE CORNER of the building, the kind used in high-end real estate presentations.
+      return `Create a COMPLETELY NEW CAMERA VIEW of the floor shown in the attached top-down rendered plan: a corner-view 3D dollhouse cutaway — as if a physical scale model of this floor stood on a table and was photographed DIAGONALLY FROM ONE OF ITS CORNERS, the kind of image used in high-end real estate presentations.
+
+ABANDON THE SOURCE VIEWPOINT — HIGHEST PRIORITY:
+- The attached image looks straight down at 90°. The output must NOT. Do not reproduce, slightly tilt, or approximately keep the source's top-down framing.
+- In the output the floor slab's outline must appear as a FORESHORTENED PARALLELOGRAM (diamond-like), NOT an axis-aligned flat rectangle. This applies even though the building is long and narrow — never fall back to a frontal or straight-down view because the plan is elongated.
 
 CAMERA — THE CORNER VIEW IS MANDATORY:
-- Place the camera at ONE CORNER of the building, rotated approximately 45 degrees horizontally so the view looks along the plan's DIAGONAL, and elevated approximately 35 degrees above the horizon.
-- The corner nearest the camera points toward the viewer; TWO adjacent sides of the building are clearly visible AT THE SAME TIME, one receding to the left and one to the right.
-- The vertical faces of the cut walls along those two sides must be visible. If the output looks like the flat top-down source image viewed straight from above, or shows only one side frontally, it is INVALID.
+- Place the camera off ONE CORNER of the building, rotated approximately 45 degrees horizontally so the view looks along the plan's DIAGONAL, and elevated approximately 45 degrees above the horizon.
+- The corner nearest the camera points toward the viewer; TWO adjacent facades of the building are clearly visible AT THE SAME TIME — the long side receding in one direction and the short side in the other.
+- The VERTICAL faces of the cut walls along those two near sides are clearly visible, with real height and real thickness.
 - Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
 - Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
 - Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
@@ -791,7 +829,9 @@ ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
 - Every piece of furniture stays in the SAME position, SAME orientation and SAME size as in the source — no additions, no removals, no rearranging, no restyling.
 - All floor materials remain identical to the source: the same warm light-oak wood flooring in living rooms and bedrooms, the same sand-beige matte ceramic tiles in kitchens, bathrooms, foyers, halls and balconies, and the same sand-beige matte porcelain tile flooring in the common corridor, elevator lobby and stair landing.
 - The color palette, furniture styling and overall atmosphere must match the source image exactly.
-- This is the SAME floor plan and SAME render, only rotated into an isometric perspective — not a reinterpretation.`;
+- This is the SAME floor plan and SAME render, photographed from a corner instead of from above — not a reinterpretation.
+
+FINAL SELF-CHECK before output: Is the nearest corner pointing at the viewer? Are two facades visible at once? Is the slab outline foreshortened into a parallelogram instead of a flat rectangle? If ANY answer is no, the image is INVALID.`;
     case "kesit":
       return `Redraw the attached schematic building section as a clean architectural presentation section drawing: cut structural elements (slabs, walls, foundations, ground) as solid black poché, interior spaces washed in light ${p.en} accent tones, simple furniture hints and a few flat human silhouettes for scale, level lines with subtle annotations, plain white background, thin precise linework, flat 2D vector style. Keep the number of floors and the overall proportions exactly as in the source. Presentation-board quality.`;
     case "render": {
@@ -910,7 +950,7 @@ function rebuildOutputs() {
   }
   if (prim) {
     put({
-      id: "render", group: "render", title: "Dış Mekân Render", sub: "Boyalı plandan fotogerçekçi dış görsel",
+      id: "render", group: "render", prep: "render", title: "Dış Mekân Render", sub: "Boyalı plandan fotogerçekçi dış görsel",
       base: () => {
         const k = primaryPlanKey();
         return state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl;
@@ -1156,6 +1196,7 @@ async function generateItem(id, silent = false) {
       let srcs;
       if (it.prep === "tefris") srcs = await prepareTefris(it);
       else if (it.prep === "tip") srcs = await prepareTip(it);
+      else if (it.prep === "render") srcs = await prepareRender(it);
       else {
         srcs = it.sources();
         if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
