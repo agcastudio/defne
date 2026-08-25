@@ -754,9 +754,13 @@ async function prepareTip(it) {
   const unit = a ? pickUnit(a, t) : null;
   if (unit) {
     const iso = await PaftaAnalysis.isolateUnit(state.inputs.plans[k].dataUrl, unit, a.doors);
-    it.prompt = TIP_UNIT_PROMPT + "\n\n" + OUTLINE_ANNOT_EN + "\n\n" + ASPECT_ANNOT_EN + "\n\n" + ANNOT_CLEAN_EN;
+    // İzole dairede MAVİ DIŞ HAT BANDI ÇİZİLMEZ: kırpılmış tek dairede bant,
+    // dairenin dış duvarının hemen yanında koştuğu için model onu ikinci bir
+    // paralel duvar olarak render edebiliyor (çift duvar hatası). Sınır zaten
+    // bembeyaz zeminle net; kontur sadakati TIP_UNIT_PROMPT metniyle korunur.
+    it.prompt = TIP_UNIT_PROMPT + "\n\n" + ASPECT_ANNOT_EN + "\n\n" + ANNOT_CLEAN_EN;
     it._verify = { source: iso.dataUrl, doors: iso.doors };
-    return [await PaftaAnalysis.annotateDoors(iso.dataUrl, iso.doors, true)];
+    return [await PaftaAnalysis.annotateDoors(iso.dataUrl, iso.doors, false)];
   }
   // Eski yol: üretilmiş boyalı plandan ayrıştırma
   it.prompt = buildPrompt(it);
