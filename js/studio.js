@@ -919,9 +919,9 @@ function rebuildOutputs() {
 
   const plans = state.inputs.plans;
 
-  // Her yüklenen plan için: boyalı plan + (vaziyet hariç) hemen ardından o katın
-  // perspektif planı. Perspektif, aynı katın boyaması "hazır" ise onu ikinci
-  // referans görsel olarak alır (renk/tefriş birebir aktarılsın diye).
+  // Her yüklenen plan için boyalı plan. Katın 3B perspektifi ayrı bir üretim
+  // kalemi değildir; boyalı plan üretilince otomatik türetilir ve çıktının
+  // .persp alanında saklanır (tipoloji perspektifiyle aynı kalıp).
   for (const t of PLAN_TYPES) {
     if (!plans[t.key]) continue;
     const k = t.key;
@@ -929,19 +929,7 @@ function rebuildOutputs() {
       put({ id: "tefris-vaziyet", group: "vaziyet", title: "Vaziyet Planı", sub: "Sunum vaziyet planı", base: () => plans.vaziyet.dataUrl, sources: () => [plans.vaziyet.dataUrl] });
       continue;
     }
-    put({ id: "tefris-" + k, group: "tefris", floorEn: t.en, floorKey: k, prep: "tefris", title: t.name, sub: "Tefrişli boyalı plan", base: () => plans[k].dataUrl, sources: () => [plans[k].dataUrl] });
-    put({
-      id: "perspektif-" + k, group: "perspektif", floorEn: t.en,
-      title: t.name.replace(" Planı", " Perspektif Planı"),
-      sub: "3B kesit-perspektif",
-      base: () => (state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl),
-      // Perspektif, YALNIZCA üretilen boyalı plan üzerinden oluşturulur.
-      sources: () => {
-        const boyama = state.outputs["tefris-" + k];
-        return boyama?.status === "hazir" && boyama.result ? [boyama.result] : [];
-      },
-      missingMsg: "Önce bu katın boyalı planı üretilmeli — perspektif, üretilen boyalı plan üzerinden oluşturulur.",
-    });
+    put({ id: "tefris-" + k, group: "tefris", floorEn: t.en, floorKey: k, prep: "tefris", title: t.name, sub: "Tefrişli boyalı plan + otomatik 3B perspektif", base: () => plans[k].dataUrl, sources: () => [plans[k].dataUrl] });
   }
 
   const prim = primaryPlan();
@@ -1218,17 +1206,22 @@ async function generateItem(id, silent = false) {
           } catch { /* ilk sonuç kalır */ }
         }
       }
-      // Tipoloji planı üretilince 3B perspektifi otomatik türetilir (pafta için)
-      if (it.prep === "tip" && it.result) {
+      // Boyalı kat planı / tipoloji planı üretilince 3B perspektifi otomatik türetilir (pafta için)
+      if ((it.prep === "tefris" || it.prep === "tip") && it.result) {
         setGenStatus(`${it.title}: 3B kesit-perspektif otomatik üretiliyor…`);
         it.persp = null;
         try {
-          it.persp = await callGemini(buildPrompt({ group: "tipper" }), [it.result]);
-        } catch { /* perspektifsiz devam — paftada not gösterilir */ }
+          it.persp = await callGemini(buildPrompt({ group: it.prep === "tip" ? "tipper" : "perspektif" }), [it.result]);
+        } catch { /* perspektifsiz devam — pafta perspektif sayfası atlanır */ }
+        setGenStatus(it.persp
+          ? `${it.title}: 3B perspektifiyle birlikte hazır.`
+          : `${it.title}: hazır — 3B perspektif üretilemedi, kartı yeniden üretmeyi deneyin.`);
       }
     } else {
       it.result = await stylizedPreview(it.base());
       it.status = "onizleme";
+      // Önizleme modunda kat perspektifi sayfası boş kalmasın (aynı duotone kullanılır)
+      if (it.prep === "tefris") it.persp = it.result;
       if (!silent) toast("API anahtarı girilmediği için stilize önizleme oluşturuldu.");
     }
   } catch (err) {
@@ -1310,8 +1303,14 @@ function buildPageDefs() {
       cap: t.key === "vaziyet" ? "Vaziyet" : i.olcek,
       scale: true, north: true,
     });
-    if (t.key !== "vaziyet") {
-      add("perspektif-" + t.key, t.name.replace(" Planı", " Perspektif Planı"), { cap: "3B kesit-perspektif" });
+    // Kat perspektifi: boyalı plan çıktısının .persp alanından (otomatik üretim)
+    const tf = t.key !== "vaziyet" ? state.outputs["tefris-" + t.key] : null;
+    if (tf?.persp) {
+      defs.push({
+        title: t.name.replace(" Planı", " Perspektif Planı"), src: tf.persp,
+        cap: "3B kesit-perspektif", note: "", scale: false, north: false,
+        preview: tf.status === "onizleme", raw: false,
+      });
     }
   }
   add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true, note: i.kesitNot });
@@ -1468,7 +1467,7 @@ $("#btnDownloadAll").addEventListener("click", async () => {
     downloadDataUrl(state.outputs[id].result, `${base}-${id}`);
     count++;
     await new Promise((r) => setTimeout(r, 350));
-    if (state.outputs[id].persp) { // tipin otomatik üretilen 3B perspektifi
+    if (state.outputs[id].persp) { // otomatik üretilen 3B perspektif (kat / tip)
       downloadDataUrl(state.outputs[id].persp, `${base}-${id}-perspektif`);
       count++;
       await new Promise((r) => setTimeout(r, 350));
