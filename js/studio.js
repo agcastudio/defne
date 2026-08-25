@@ -765,6 +765,7 @@ STYLE:
       return `Convert the attached top-down rendered floor plan into an ANGLED ISOMETRIC 3D cutaway view of the same floor — a dollhouse-style axonometric render viewed from an elevated corner angle (approximately 30-45 degrees), the kind used in high-end real estate presentations.
 
 CAMERA & FORM:
+- The camera is positioned at ONE CORNER of the building, elevated about 30-45 degrees, looking diagonally ACROSS the plan — a true three-quarter corner view where TWO adjacent sides are clearly visible. NEVER render a straight top-down view or a frontal view; the diagonal corner angle is mandatory.
 - Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
 - Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
 - Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
@@ -796,6 +797,24 @@ STYLE & MATERIALS: ${s.en} architecture; facade materials and accents following 
 
 PHOTOREALISM — this must read as a real photograph of a finished building, not an illustration: golden-hour sunlight with physically plausible soft shadows and reflections, subtle material texture (plaster grain, stone joints, glass reflections), landscaped surroundings with trees and low planting, paved sidewalk and street, a few people and a parked car for scale, eye-level camera from across the street with a slight wide angle showing two facades in a three-quarter view, sharp architectural detail, high-end archviz quality. No text, labels or watermarks.`;
     }
+    case "tipper":
+      return `Convert the attached top-down rendered plan of a SINGLE apartment unit into an ANGLED ISOMETRIC 3D cutaway view of the same unit — a dollhouse-style axonometric render viewed from an elevated corner angle (approximately 30-45 degrees), the kind used in high-end real estate presentations.
+
+CAMERA & FORM:
+- The camera is positioned at ONE CORNER of the unit, elevated about 30-45 degrees, looking diagonally ACROSS the unit — a true three-quarter corner view where TWO adjacent sides of the unit are clearly visible. NEVER render a straight top-down view, a frontal view or a flat elevation; the diagonal corner angle is mandatory.
+- Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
+- Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
+- Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
+- Soft realistic lighting from above, gentle ambient occlusion in room corners, subtle shadows cast by walls and furniture.
+- Clean light grey-white background, no text labels.
+
+ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
+- The unit's wall layout, room shapes, proportions, outline and balconies must remain EXACTLY as in the source image. Do not add, remove, move or resize any wall.
+- Every door and window stays in its exact position with the same width; doors stay open exactly as in the source. Do not add or remove any.
+- Every piece of furniture stays in the SAME position, SAME orientation and SAME size as in the source — no additions, no removals, no rearranging, no restyling.
+- All floor materials and the color palette remain identical to the source.
+- Render ONLY this unit — do NOT invent neighboring rooms, corridors or any other building parts around it.
+- This is the SAME unit and SAME render, only rotated into an isometric perspective — not a reinterpretation.`;
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
       const katEnList = (t.katlar || []).map((v) => KAT_OPTIONS.find((o) => o.value === v)?.en).filter(Boolean);
@@ -907,6 +926,22 @@ function rebuildOutputs() {
         return boyama?.status === "hazir" && boyama.result ? [boyama.result] : [];
       },
       missingMsg: "Önce ilgili katın boyalı planı üretilmeli — tipoloji planı, kat boyaması üzerinden ayrıştırılır.",
+    });
+    // Tipin 3B kesit-perspektifi — üretilen tip planı üzerinden oluşturulur
+    put({
+      id: "tipper-" + tt.id, group: "tipper",
+      title: `Tipoloji Perspektif — ${tt.name}`, sub: "3B kesit-perspektif",
+      base: () => {
+        const r = state.outputs["tip-" + tt.id]?.result;
+        if (r) return r;
+        const k = tipSourceFloorKey(tt);
+        return k ? state.inputs.plans[k].dataUrl : null;
+      },
+      sources: () => {
+        const tip = state.outputs["tip-" + tt.id];
+        return tip?.status === "hazir" && tip.result ? [tip.result] : [];
+      },
+      missingMsg: "Önce bu tipin planı üretilmeli — perspektif, üretilen tip planı üzerinden oluşturulur.",
     });
   }
 
@@ -1208,14 +1243,32 @@ function buildPageDefs() {
   }
   add("kesit", "Şematik Kesit", { fallback: state.inputs.kesit?.dataUrl, cap: "Kesit A-A", scale: true, note: i.kesitNot });
   add("render", "Dış Mekân Görselleştirmesi", { cap: "Boyalı plan altlıklı kütle çalışması" });
+  // Tipoloji paftaları: sağda plan, sol üstte perspektif, sol altta bilgi tablosu
   for (const t of state.typologies) {
     if (!t.name) continue;
-    add("tip-" + t.id, `Tipoloji — ${t.name}`, {
-      cap: typoMeta(t),
-      scale: true, north: true,
+    const o = outImg("tip-" + t.id);
+    if (!o?.src) continue;
+    defs.push({
+      title: `Tipoloji — ${t.name}`, src: o.src, cap: i.olcek || "",
+      note: "", scale: true, north: true, preview: !!o.preview, raw: false,
+      tipo: t, persp: outImg("tipper-" + t.id)?.src || null,
     });
   }
   return defs;
+}
+
+/* Tipoloji paftasındaki bilgi tablosu */
+function tipoTableHtml(t) {
+  const rows = [
+    ["Tip Adı", t.name],
+    ["Net Alan", t.netArea && t.netArea + " m²"],
+    ["Brüt Alan", t.brutArea && t.brutArea + " m²"],
+    ["Adet", t.count && t.count + " adet"],
+    ["Kat(lar)", t.katlar?.length ? t.katlar.join(", ") : ""],
+    ["Daire Tipi", t.dubleks ? "Dubleks" : "Tek Kat"],
+  ].filter(([, v]) => v);
+  return `<table class="tp-table"><tbody>${rows.map(([k, v]) =>
+    `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function renderPages() {
@@ -1268,8 +1321,22 @@ function renderPages() {
     const capLines = [d.cap, d.preview ? "stilize önizleme" : "", d.raw ? "orijinal çizim" : ""].filter(Boolean);
     const marksHtml = d.scale || d.north ? `<div class="pg-marks">${d.scale ? SCALEBAR_HTML : ""}${d.north ? NORTH_SVG : ""}</div>` : "";
     const imgHtml = `<img src="${d.src}" alt="${esc(d.title)}">`;
-    // Not varsa: sol şeritte büyük puntolu bilgi panosu + sağda çizim
-    const bodyHtml = d.note
+    // Tipoloji paftası: sol üstte perspektif, altında bilgi tablosu, sağda plan.
+    // Not varsa: sol şeritte büyük puntolu bilgi panosu + sağda çizim.
+    const bodyHtml = d.tipo
+      ? `<div class="pg-body pg-split pg-tipo">
+           <aside class="tp-left">
+             <div class="tp-persp">${d.persp
+               ? `<img src="${d.persp}" alt="Tipoloji perspektifi">`
+               : `<div class="tp-empty">3B perspektif üretilmedi — 3. adımda "Tipoloji Perspektif" çıktısını üretin</div>`}</div>
+             <div class="tp-info">
+               <span class="sn-head">Tipoloji Bilgileri</span>
+               ${tipoTableHtml(d.tipo)}
+             </div>
+           </aside>
+           <div class="pg-img-area">${imgHtml}${marksHtml}</div>
+         </div>`
+      : d.note
       ? `<div class="pg-body pg-split">
            <aside class="pg-sidenote">
              <span class="sn-head">Proje Notları</span>
