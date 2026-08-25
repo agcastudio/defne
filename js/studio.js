@@ -206,6 +206,7 @@ function goTo(step) {
     return;
   }
   state.step = step;
+  if (step === 2) autoAnalyzePlans();
   if (step === 3) { rebuildOutputs(); renderOutputs(); }
   if (step === 4) renderPages();
   syncStepUI();
@@ -609,6 +610,21 @@ PaftaAnalysis.configure({
   },
 });
 
+/* 2. adıma geçildiğinde yüklü kat planları kendiliğinden analiz edilir (kapı +
+   daire); manuel başlatma düğmesi yoktur. Analizler paralel ve beklenmeden
+   çalışır; tamamlananların tipoloji önerileri ensureAnalysis içinden düşer,
+   durum/hata 1. adımdaki kartın analiz satırında görünür. */
+function autoAnalyzePlans() {
+  if (!hasAiAccess()) return;
+  for (const t of PLAN_TYPES) {
+    if (t.key === "vaziyet" || !state.inputs.plans[t.key]) continue;
+    const a = state.analysis[t.key];
+    if (a?.status === "calisiyor") continue;
+    if (a?.status === "hazir" && a.forUrl === state.inputs.plans[t.key].dataUrl) continue;
+    ensureAnalysis(t.key).catch(() => { /* hata kartın analiz satırında görünür */ });
+  }
+}
+
 /* Plan analizini (kapılar + daireler) çalıştırır; sonucu plan başına önbellekler */
 async function ensureAnalysis(k) {
   const plan = state.inputs.plans[k];
@@ -658,10 +674,13 @@ function renderAnalysisRows() {
         <span class="an-status ok">✓ ${a.doors.length} kapı${a.units.length ? ` · ${a.units.length} daire` : ""}</span>
         <button class="link-btn" data-an-edit="${t.key}" type="button">✎ Düzenle</button>
         <button class="link-btn" data-an-redo="${t.key}" type="button" title="Tespiti yeniden çalıştır">↻ Yeniden</button>`;
-    } else {
+    } else if (a?.status === "hata") {
       el.innerHTML = `
-        <button class="link-btn" data-an-run="${t.key}" type="button">🔍 Kapı &amp; daire analizi</button>
-        ${a?.status === "hata" ? `<span class="an-status err">${esc(a.error || "hata")}</span>` : ""}`;
+        <span class="an-status err">${esc(a.error || "Analiz başarısız")}</span>
+        <button class="link-btn" data-an-redo="${t.key}" type="button">↻ Yeniden</button>`;
+    } else {
+      // Manuel başlatma yok: analiz 2. adıma geçildiğinde kendiliğinden çalışır
+      el.innerHTML = t.key === "vaziyet" ? "" : `<span class="an-status">Kapı &amp; daire analizi 2. adıma geçince otomatik çalışır</span>`;
     }
   }
 }
