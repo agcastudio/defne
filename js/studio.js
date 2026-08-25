@@ -428,6 +428,37 @@ function typoMeta(t) {
   ].filter(Boolean).join(" · ");
 }
 
+/* Plan analizinde bulunan daire tiplerinden tipoloji önerisi: listede karşılığı
+   olmayan her tip harfi için "2+1 Tip A" biçiminde satır ekler (oda şeması
+   analizdeki oda adlarından; alan/adet kullanıcı tarafından tamamlanır).
+   Eklenen satır sayısını döndürür; eklediyse bildirir. */
+const PLAN_TO_KAT = Object.fromEntries(Object.entries(KAT_TO_PLAN).map(([v, k]) => [k, v]));
+function proposeTypologies(k, a) {
+  const byLetter = new Map();
+  for (const u of a?.units || []) {
+    if (!/^[A-Z]$/.test(u.letter || "")) continue;
+    if (!byLetter.has(u.letter)) byLetter.set(u.letter, []);
+    byLetter.get(u.letter).push(u);
+  }
+  let added = 0;
+  for (const [L, us] of [...byLetter.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+    const taken = state.typologies.some((t) =>
+      (t.unitUid && us.some((u) => u.uid === t.unitUid)) ||
+      new RegExp(`tip\\s*${L}(\\b|$)`, "i").test(t.name || ""));
+    if (taken) continue;
+    let scheme = null;
+    for (const u of us) { scheme = PaftaAnalysis.roomScheme(u); if (scheme) break; }
+    addTypology({
+      name: (scheme ? scheme + " " : "") + "Tip " + L,
+      katlar: PLAN_TO_KAT[k] ? [PLAN_TO_KAT[k]] : [],
+      unitUid: us[0].uid,
+    });
+    added++;
+  }
+  if (added) toast(`Plan analizinden ${added} tipoloji önerildi — 2. adımda alan ve adet bilgilerini tamamlayabilirsiniz.`);
+  return added;
+}
+
 /* Dubleks tip için en az iki kat seçili olmasını sağlar.
    Tek kat seçiliyse bitişiğindeki katı ekler; hiç seçim yoksa Son Kat + Çatı Katı (çatı dubleksi). */
 function ensureDuplexFloors(t) {
@@ -505,6 +536,27 @@ function renderTypologies() {
 
 $("#btnAddTypo").addEventListener("click", () => addTypology());
 
+/* 2. adımdan tipoloji önerisi: ana kat planını analiz eder, bulunan tipleri ekler.
+   Taze analiz koşusu önerileri kendisi ekler (ensureAnalysis içinde); burada yalnız
+   analiz önbellekten geldiyse öneri çalıştırılır ki bildirimler çiftlenmesin. */
+$("#btnTypoFromPlan").addEventListener("click", async () => {
+  const k = primaryPlanKey();
+  if (!k) { toast("Önce 1. adımda bir kat planı yükleyin.", true); return; }
+  if (!hasAiAccess()) { toast("Plandan öneri için yapay zekâ bağlantısı gerekli — 3. adımdaki anahtar/proxy ayarına bakın.", true); return; }
+  const btn = $("#btnTypoFromPlan");
+  const eski = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Plan analiz ediliyor…";
+  try {
+    const cached = state.analysis[k]?.status === "hazir" && state.analysis[k].forUrl === state.inputs.plans[k].dataUrl;
+    const a = await ensureAnalysis(k);
+    if (!a.units.length) toast("Analiz daire tespit edemedi — 3. adımdaki ✎ Düzenle ile daireleri elle işaretleyebilirsiniz.", true);
+    else if (cached && !proposeTypologies(k, a)) toast("Analizde bulunan tüm tipler zaten listede.");
+  } catch (err) { toast(err.message || "Analiz başarısız.", true); }
+  btn.disabled = false;
+  btn.textContent = eski;
+});
+
 /* ============================================================
    ADIM 3 — ÜRETİM
    ============================================================ */
@@ -579,6 +631,8 @@ async function ensureAnalysis(k) {
       if (regions) { a.units = regions.units; a.common = regions.common; }
     }
     a.status = "hazir";
+    // Bulunan daire tipleri, listede karşılığı yoksa tipoloji olarak önerilir
+    if (a.units.length) proposeTypologies(k, a);
   } catch (err) {
     a.status = "hata";
     a.error = err.message || "Analiz başarısız.";

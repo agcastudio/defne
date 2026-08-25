@@ -303,8 +303,10 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
           const adj = rectAdjacency(o.rects, v.rects, adjTol);
           if (adj > bestAdj) { bestAdj = adj; best = v; }
         }
-        if (best) best.rects.push(...o.rects);
-        else keep.push(o); // komşuluğu yoksa ayrı bırak — yanlış birleştirme yapma
+        if (best) {
+          best.rects.push(...o.rects);
+          (best.names || (best.names = [])).push(...(o.names || []));
+        } else keep.push(o); // komşuluğu yoksa ayrı bırak — yanlış birleştirme yapma
       }
       picked.units = keep;
     }
@@ -325,8 +327,9 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
       const y1 = clamp(crop.y0 + (Math.max(ymin, ymax) / 1000) * crop.h, 0, H);
       if (x1 - x0 < 6 || y1 - y0 < 6) continue;
       const uid = String(e.unit ?? "?").trim().toLowerCase();
-      const u = units.get(uid) || { letter: null, rects: [] };
+      const u = units.get(uid) || { letter: null, rects: [], names: [] };
       u.rects.push([x0, y0, x1, y1]);
+      u.names.push(String(e.name || "").trim().toLowerCase());
       const t = String(e.type || "").trim().toUpperCase().slice(0, 1);
       if (/[A-Z]/.test(t) && uid !== "common") u.letter = t;
       units.set(uid, u);
@@ -337,14 +340,14 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     for (const [uid, u] of units) {
       const L = u.letter || "?";
       if (!byLetter.has(L)) byLetter.set(L, []);
-      byLetter.get(L).push({ uid, rects: u.rects });
+      byLetter.get(L).push({ uid, rects: u.rects, names: u.names });
     }
     const list = [];
     for (const [L, us] of [...byLetter.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
       us.forEach((u, i) => list.push({
         uid: u.uid, letter: L,
         label: "Tip " + L + (us.length > 1 ? " · " + (i + 1) : ""),
-        rects: u.rects,
+        rects: u.rects, names: u.names,
       }));
     }
     return { units: list, common, w: W, h: H };
@@ -665,7 +668,7 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
      ============================================================ */
   function openEditor({ title, dataUrl, doors, units, common, onSave }) {
     const work = (doors || []).map((d) => ({ ...d }));
-    const unitsWork = (units || []).map((u) => ({ ...u, rects: u.rects.map((r) => [...r]) }));
+    const unitsWork = (units || []).map((u) => ({ ...u, rects: u.rects.map((r) => [...r]), names: [...(u.names || [])] }));
     let mergeSel = -1; // birleştirme için seçili daire çipi
     const wrap = document.createElement("div");
     wrap.className = "pa-modal";
@@ -703,6 +706,7 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
           else {
             // İkinci seçilen daire ilkine katılır
             unitsWork[mergeSel].rects.push(...unitsWork[i].rects);
+            unitsWork[mergeSel].names.push(...(unitsWork[i].names || []));
             unitsWork.splice(i, 1);
             mergeSel = -1;
           }
@@ -768,5 +772,17 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     wrap.addEventListener("click", (e) => { if (e.target === wrap) closeModal(); });
   }
 
-  return { configure, detectDoors, detectRegions, chooseRegions, annotateDoors, isolateUnit, verifyResult, openEditor, letterColor };
+  /* Daire oda adlarından "2+1" biçiminde şema çıkarır (yatak odası + salon).
+     Yatak odası hiç yoksa stüdyo kabul edilir ("1+0"); ad bilgisi yoksa null. */
+  function roomScheme(unit) {
+    let beds = 0, livings = 0;
+    for (const n of unit?.names || []) {
+      if (/bed|yatak/.test(n)) beds++;
+      else if (/living|salon|lounge/.test(n)) livings++;
+    }
+    if (!beds && !livings) return null;
+    return beds ? `${beds}+${livings || 1}` : "1+0";
+  }
+
+  return { configure, detectDoors, detectRegions, chooseRegions, annotateDoors, isolateUnit, verifyResult, openEditor, letterColor, roomScheme };
 })();
