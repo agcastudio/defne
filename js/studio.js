@@ -946,25 +946,26 @@ STYLE & MATERIALS: ${s.en} architecture; facade materials and accents following 
 PHOTOREALISM — this must read as a real photograph of a finished building, not an illustration: golden-hour sunlight with physically plausible soft shadows and reflections, subtle material texture (plaster grain, stone joints, glass reflections), landscaped surroundings with trees and low planting, paved sidewalk and street, a few people and a parked car for scale, eye-level camera from across the street with a slight wide angle showing two facades in a three-quarter view, sharp architectural detail, high-end archviz quality. No text, labels or watermarks.`;
     }
     case "tipper":
-      return `Convert the attached top-down rendered plan of a SINGLE apartment unit into a CORNER-VIEW isometric 3D cutaway of the same unit — a dollhouse-style axonometric render seen DIAGONALLY FROM ONE CORNER of the unit, the kind used in high-end real estate presentations.
+      // Not: bu prompt, girdinin isoProject() ile İZOMETRİK ÖN-DÖNÜŞÜMDEN geçtiğini
+      // varsayar (döşeme girdide zaten paralelkenar görünür). Kamera talimatı tek
+      // başına yetersizdi (2 denemede de tepeden kaldı); ön-dönüşüm + bu prompt
+      // 2/2 doğru köşe görünümü verdi.
+      return `The attached image is a furnished apartment floor plan that has ALREADY been projected into an isometric view: the floor appears as a foreshortened diamond/parallelogram, exactly as it should look from a 45-degree corner camera. Your task: build the finished 3D DOLLHOUSE CUTAWAY of this apartment in EXACTLY this projection and orientation — as if a physical scale model stood on a table photographed from this corner angle.
 
-CAMERA — THE CORNER VIEW IS MANDATORY:
-- Place the camera at ONE CORNER of the unit, rotated approximately 45 degrees horizontally so the view looks along the unit's DIAGONAL, and elevated approximately 35 degrees above the horizon.
-- The corner nearest the camera points toward the viewer; TWO adjacent sides of the unit are clearly visible AT THE SAME TIME, one receding to the left and one to the right.
-- The vertical faces of the cut walls along those two sides must be visible. If the output looks like the flat top-down source image viewed straight from above, or shows only one side frontally, it is INVALID.
-- Isometric / axonometric projection, no lens distortion, no fisheye — parallel lines stay parallel.
-- Walls rise to a uniform cut height (about 1 meter equivalent), cleanly cut at the top with a flat white cap, so every room interior stays fully visible.
-- Furniture becomes true 3D objects with correct height and proportions: beds, sofas, tables, chairs, wardrobes, kitchen counters, sanitary fixtures.
-- Soft realistic lighting from above, gentle ambient occlusion in room corners, subtle shadows cast by walls and furniture.
-- Clean light grey-white background, no text labels.
+BUILD THE MODEL IN THIS PROJECTION — HIGHEST PRIORITY:
+- Keep the floor slab exactly where and how the image shows it: same diamond orientation, same proportions, same position in the frame.
+- EXTRUDE every wall upward to a uniform cut height (about 1 meter equivalent) with clean flat white caps and real wall thickness; near walls show their outer white faces, far walls their inner faces.
+- Give every piece of furniture true 3D height and realistic form in its EXACT drawn position, size and orientation: upholstered sofas, beds with bedding, wooden tables and wardrobes, kitchen counters, sanitary fixtures.
+- The flat, skewed look of the source becomes a crisp, physically correct isometric render — but the LAYOUT NEVER changes: no wall, door, window, room or furniture is added, removed, moved or resized.
+- Doors stay open exactly as drawn; balconies and the outline keep their exact geometry.
 
-ABSOLUTE FIDELITY RULES — change ONLY the camera angle:
-- The unit's wall layout, room shapes, proportions, outline and balconies must remain EXACTLY as in the source image. Do not add, remove, move or resize any wall.
-- Every door and window stays in its exact position with the same width; doors stay open exactly as in the source. Do not add or remove any.
-- Every piece of furniture stays in the SAME position, SAME orientation and SAME size as in the source — no additions, no removals, no rearranging, no restyling.
-- All floor materials and the color palette remain identical to the source.
-- Render ONLY this unit — do NOT invent neighboring rooms, corridors or any other building parts around it.
-- This is the SAME unit and SAME render, only rotated into an isometric perspective — not a reinterpretation.`;
+STYLE — IDENTICAL TO THE SOURCE MATERIALS:
+- Same warm light-oak wood floors, same sand-beige tiles, same terracotta/clay upholstery tones, same saturation — never washed out, never recolored, never simplified into flat clay-colored blocks.
+- Soft realistic lighting from above, gentle ambient occlusion in room corners, subtle shadows; clean light grey-white background around the model.
+- The unit fills most of the frame with only a narrow background margin.
+- Remove ALL text and labels visible in the source — the output contains no text anywhere.
+
+FINAL SELF-CHECK: is the floor still the same diamond as the input (not rotated back to a straight rectangle, not re-flattened to top-down)? Are walls extruded with visible vertical faces? Is furniture realistic 3D in identical positions and colors? No text? If ANY answer is no, the output is INVALID.`;
     case "tip": {
       const t = state.typologies.find((x) => "tip-" + x.id === item.id) || {};
       const katEnList = (t.katlar || []).map((v) => KAT_OPTIONS.find((o) => o.value === v)?.en).filter(Boolean);
@@ -1232,6 +1233,24 @@ async function callGemini(promptText, dataUrls) {
   throw new Error("Model görsel döndürmedi" + (block ? ` (${block})` : "") + (txt ? ` — “${txt.slice(0, 140)}”` : "") + ". Yeniden deneyin.");
 }
 
+/* Kaynağı izometrik projeksiyona çevirir: 45° döndürme + 2:1 basıklık.
+   Döşeme daha GİRDİDE paralelkenar görününce model köşe görünümüne kilitlenir;
+   tip perspektifinde tepeden-kopyalama hatasının kanıtlı çözümü. */
+async function isoProject(dataUrl) {
+  const img = await loadImage(dataUrl);
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const c30 = Math.cos(Math.PI / 6), s30 = Math.sin(Math.PI / 6);
+  const c = document.createElement("canvas");
+  c.width = Math.round((w + h) * c30);
+  c.height = Math.round((w + h) * s30);
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#f3f2f0";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.setTransform(c30, s30, -c30, s30, h * c30, 0);
+  ctx.drawImage(img, 0, 0);
+  return c.toDataURL("image/jpeg", 0.92);
+}
+
 /* --- Anahtar yokken: palete uygun stilize önizleme (duotone) --- */
 
 async function stylizedPreview(dataUrl) {
@@ -1306,7 +1325,12 @@ async function generateItem(id, silent = false) {
         setGenStatus(`${it.title}: 3B kesit-perspektif otomatik üretiliyor…`);
         it.persp = null;
         try {
-          it.persp = await callGemini(buildPrompt({ group: it.prep === "tip" ? "tipper" : "perspektif" }), [it.result]);
+          // Tek dairede NB "tepeden kopyalama" çekimine kapılıyor (kamera talimatı
+          // yetmiyor — 0/2); girdi izometrik ön-dönüşümle gönderilince köşe görünümü
+          // garanti (2/2). Kat perspektifi ise prompt'la sorunsuz — dokunma.
+          it.persp = it.prep === "tip"
+            ? await callGemini(buildPrompt({ group: "tipper" }), [await isoProject(it.result)])
+            : await callGemini(buildPrompt({ group: "perspektif" }), [it.result]);
         } catch { /* perspektifsiz devam — pafta perspektif sayfası atlanır */ }
         setGenStatus(it.persp
           ? `${it.title}: 3B perspektifiyle birlikte hazır.`
