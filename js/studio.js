@@ -1331,7 +1331,7 @@ $("#btnGenAll").addEventListener("click", async () => {
   state.busy = true;
   const btn = $("#btnGenAll");
   btn.disabled = true;
-  const mode = hasAiAccess() ? "Gemini ile üretiliyor" : "Stilize önizleme oluşturuluyor";
+  const mode = hasAiAccess() ? "agca studio koşturuyor az bekle" : "Stilize önizleme oluşturuluyor";
   let i = 0, fail = 0;
   for (const id of targets) {
     i++;
