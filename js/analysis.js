@@ -376,6 +376,18 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     return ec;
   }
 
+  /* Salt dış sınır görseli: beyaz zemin üzerine bina taban sınırı bandı.
+     Dış render gibi "sadece kontur" girdisi gereken üretimler için ayrık görsel. */
+  async function outlineImage(dataUrl, fromRender = false) {
+    const img = await loadImg(dataUrl);
+    const c = makeCanvas(img.naturalWidth, img.naturalHeight);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(outlineLayer(img, fromRender), 0, 0, c.width, c.height);
+    return c.toDataURL("image/png");
+  }
+
   /* ---- İşaretleme: kırmızı kapı halkaları + (isteğe bağlı) mavi dış hat bandı ----
      withOutline: false | true ("ink" — çizgi kaynaklı) | "render" (boyalı görsel) */
   async function annotateDoors(dataUrl, doors, withOutline = false) {
@@ -784,5 +796,5 @@ Every room, balcony and shaft visible on the plan must appear in exactly one ent
     return beds ? `${beds}+${livings || 1}` : "1+0";
   }
 
-  return { configure, detectDoors, detectRegions, chooseRegions, annotateDoors, isolateUnit, verifyResult, openEditor, letterColor, roomScheme };
+  return { configure, detectDoors, detectRegions, chooseRegions, annotateDoors, outlineImage, isolateUnit, verifyResult, openEditor, letterColor, roomScheme };
 })();

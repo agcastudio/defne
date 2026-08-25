@@ -735,15 +735,24 @@ async function prepareTip(it) {
   return srcs;
 }
 
-/* Dış render: boyalı planın kendi taban konturu mavi bantla işaretlenip
-   "kütle tam bu sınıra oturacak" talimatıyla gönderilir. */
+/* Dış render girdileri: (1) kat planından çıkarılan SALT dış sınır görseli,
+   (2) dokunulmamış boyalı plan (cephe yerleşimi ve malzeme referansı).
+   Kat adedi prompt'a proje künyesinden eklenir (buildPrompt içindeki katRule). */
 async function prepareRender(it) {
   const srcs = it.sources();
   if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
-  it.prompt = buildPrompt(it) + "\n\n" + RENDER_OUTLINE_EN + "\n\n" + ANNOT_CLEAN_EN;
+  it.prompt = buildPrompt(it) + "\n\n" + ANNOT_CLEAN_EN;
   it._verify = null; // dış görselde plan-doğrulaması uygulanamaz
-  const marked = await PaftaAnalysis.annotateDoors(srcs[0], [], "render");
-  return [marked, ...srcs.slice(1)];
+  const k = primaryPlanKey();
+  let outline;
+  try {
+    // Dış sınır şematik kat planından (çizgi kaynaklı) çıkarılır — en güvenilir kaynak
+    outline = await PaftaAnalysis.outlineImage(state.inputs.plans[k].dataUrl, false);
+  } catch {
+    // Şematik plandan çıkarılamazsa boyalı plandan (kenar-medyan ayrımıyla) denenir
+    outline = await PaftaAnalysis.outlineImage(srcs[0], true);
+  }
+  return [outline, ...srcs];
 }
 
 /* ============================================================
@@ -757,12 +766,6 @@ async function prepareRender(it) {
 const ASPECT_ANNOT_EN = `ASPECT RATIO — CRITICAL:
 - The plan's PROPORTIONS are ground truth: reproduce its width-to-height ratio EXACTLY as drawn. NEVER stretch, squash, elongate or compress the plan to fill the output frame — a long narrow plan stays long and narrow.
 - If the output canvas is wider or taller than the plan, keep the plan at its TRUE proportions, centered, and fill the leftover space with the clean light background. Empty margins are correct; a stretched or re-proportioned plan is INVALID.`;
-
-/* Dış render: boyalı plan üzerindeki mavi bant = bina taban sınırı */
-const RENDER_OUTLINE_EN = `FOOTPRINT ANNOTATION — CRITICAL:
-- The thick BLUE band drawn on the attached floor plan traces the building's EXACT ground footprint boundary. It is an annotation only — do NOT render the band itself.
-- The building mass must stand EXACTLY on this footprint: every notch, step, angle and protrusion of the blue boundary must appear in the built form at ground level. Nothing may be built outside the band, nothing inside it may be omitted, and it must NEVER be simplified into a plain box.
-- Before finishing, compare the massing's ground outline with the blue band segment by segment.`;
 
 /* İşaretlerin (kırmızı halka + mavi bant) çıktıya sızmasını engelleyen blok */
 const ANNOT_CLEAN_EN = `ANNOTATION CLEANUP — CRITICAL:
@@ -892,13 +895,16 @@ FINAL SELF-CHECK before output: Is the nearest corner pointing at the viewer? Ar
       const katRule = state.info.kat
         ? `- FLOOR COUNT — taken from the project information: the building has "${state.info.kat}" floors (Turkish floor naming: "Bodrum" = basement level below grade, "Zemin" = ground floor, "Ara" / "Normal" = typical upper floors, "Çatı" = roof level; e.g. "Zemin + 3" means a ground floor plus 3 upper floors). Work out the exact number of ABOVE-GROUND storeys from this and build the facade with EXACTLY that many visible floor levels — count the horizontal rows of windows/balconies to verify. Not one more, not one fewer. Basement levels stay below grade and are not visible on the facade.`
         : `- FLOOR COUNT: no floor count is given in the project information; render a realistic low-to-mid-rise residential building with a clearly countable number of storeys.`;
-      return `The attached image is the rendered top-down floor plan (colored and furnished) of one full storey of this building. Use it as the DIRECT BASE for the design and produce a PHOTOREALISTIC exterior architectural visualization of the completed building.
+      return `TWO images are attached; together with the floor count below they fully define the building. Produce a PHOTOREALISTIC exterior architectural visualization of the completed building.
+
+- IMAGE 1 — FOOTPRINT OUTLINE: a thick blue band on a plain white background tracing the building's EXACT ground footprint boundary, extracted from the architectural floor plan. This is the SINGLE SOURCE OF TRUTH for the building's ground outline. The band is an annotation only — never render it.
+- IMAGE 2 — RENDERED FLOOR PLAN: the colored, furnished top-down plan of one full storey. Use it ONLY to read the facade layout and materials mood — which rooms meet the outer edge, where balconies sit, where the entrance is.
 
 ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
-- FOOTPRINT: the building's ground footprint must follow the OUTER OUTLINE of the attached plan exactly — same overall shape, same proportions, same corner geometry. If the outline is slanted, angled, L/U-shaped, stepped or irregular in ANY way, the built mass must show that same geometry. NEVER simplify or square it up into a plain box, and never change its proportions.
+- FOOTPRINT (from IMAGE 1): the building's ground footprint must follow the blue boundary exactly — same overall shape, same proportions, same corner geometry; every notch, step, angle and protrusion of the boundary appears in the built mass at ground level. If the outline is slanted, angled, L/U-shaped, stepped or irregular in ANY way, the built mass must show that same geometry. Nothing may be built outside the boundary, nothing inside it may be omitted, and it must NEVER be simplified or squared up into a plain box.
 ${katRule}
-- FACADE FROM THE PLAN: derive the facade layout from the plan — place generous windows where the plan shows living rooms and bedrooms along the outer edge, and place balconies on the facade exactly where the plan shows balconies/terraces, repeated on the residential floors. The building entrance sits on the side where the plan's common core (stair / elevator hall) reaches the outer edge.
-- FINAL SELF-CHECK before output: recount the storeys on the facade and re-compare the massing footprint with the plan's outer boundary. A wrong floor count or a changed footprint makes the output invalid.
+- FACADE FROM THE PLAN (IMAGE 2): derive the facade layout from the rendered plan — place generous windows where the plan shows living rooms and bedrooms along the outer edge, and place balconies on the facade exactly where the plan shows balconies/terraces, repeated on the residential floors. The building entrance sits on the side where the plan's common core (stair / elevator hall) reaches the outer edge.
+- FINAL SELF-CHECK before output: recount the storeys on the facade and re-compare the massing's ground outline with IMAGE 1's blue boundary segment by segment. A wrong floor count or a changed footprint makes the output invalid.
 
 STYLE & MATERIALS: ${s.en} architecture; facade materials and accents following a ${p.en} palette — warm sand-beige plaster and natural stone, terracotta and muted clay accent panels, natural wood soffits at balconies and the entrance canopy, slim dark window frames, glass balcony railings.
 
@@ -992,7 +998,7 @@ function rebuildOutputs() {
   }
   if (prim) {
     put({
-      id: "render", group: "render", prep: "render", title: "Dış Mekân Render", sub: "Boyalı plandan fotogerçekçi dış görsel",
+      id: "render", group: "render", prep: "render", title: "Dış Mekân Render", sub: "Dış sınır + boyalı plan + kat adedinden fotogerçekçi dış görsel",
       base: () => {
         const k = primaryPlanKey();
         return state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl;
