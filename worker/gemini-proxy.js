@@ -1,29 +1,29 @@
 /* ============================================================
    PAFTA STUDIO — Gemini Ara Sunucusu (Cloudflare Worker)
    ------------------------------------------------------------
-   API anahtarını siteden ve depodan tamamen çıkarır: anahtar
-   yalnızca Cloudflare'de "Secret" olarak durur, tarayıcıya inmez.
+   API anahtarını siteden ve depodan tamamen çıkarır.
 
-   KURULUM (5 dakika, ücretsiz):
-   1. https://dash.cloudflare.com → hesap açın/girin.
-   2. Workers & Pages → Create → Worker → isim verin (örn. pafta-gemini)
-      → Deploy.
-   3. "Edit code" deyip bu dosyanın TAMAMINI yapıştırın → Deploy.
-   4. Worker sayfasında Settings → Variables and Secrets →
-      "Add" → Type: Secret → Name: GEMINI_API_KEY →
-      Value: yeni Gemini anahtarınız → Save.
-   5. Worker adresini (https://pafta-gemini.XXXX.workers.dev)
-      sitedeki js/config.js dosyasının proxyUrl alanına yazın.
+   KURULUM: Bu dosyanın TAMAMINI Cloudflare worker editörüne
+   yapıştırın, aşağıdaki GEMINI_API_KEY satırındaki tırnakların
+   arasına anahtarınızı yazın → Deploy.
+   (Settings → Variables and Secrets'ta GEMINI_API_KEY tanımlıysa
+   satırı boş bırakabilirsiniz; Secret öncelikli değil — kod
+   içindeki boşsa Secret kullanılır.)
    ============================================================ */
+
+// Anahtar: tırnakların arasına yapıştırın (örn. "AIza...").
+// Boş bırakılırsa Cloudflare Secret'taki GEMINI_API_KEY kullanılır.
+const GEMINI_API_KEY = "";
 
 const ALLOWED_ORIGINS = [
   "https://agcastudio.github.io",
   "http://localhost:8123", // yerel geliştirme
 ];
 
-const ALLOWED_MODELS = [
-  "gemini-3-pro-image-preview", // Nano Banana Pro — sitenin kullandığı tek model
-];
+// Yalnızca Gemini model adlarına izin verilir (görsel üretimi + tespit).
+// Google model adlarını zamanla emekliye ayırdığı için sabit liste yerine
+// desen kullanılır; site, güncel tespit modelini kendisi deneyerek bulur.
+const ALLOWED_MODEL_RE = /^gemini-[a-z0-9.-]+$/i;
 
 export default {
   async fetch(request, env) {
@@ -44,13 +44,15 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return err(405, "Yalnızca POST istekleri kabul edilir.");
     if (!originAllowed) return err(403, "Bu kaynaktan (origin) erişime izin verilmiyor.");
-    if (!env.GEMINI_API_KEY) return err(500, "Worker'da GEMINI_API_KEY tanımlı değil (Settings → Variables and Secrets).");
+
+    const key = GEMINI_API_KEY || (env && env.GEMINI_API_KEY) || "";
+    if (!key) return err(500, "API anahtarı tanımlı değil — worker kodundaki GEMINI_API_KEY satırına anahtarınızı yazın.");
 
     // Model, adresin son parçasından okunur: /gemini-3-pro-image-preview
     const model = decodeURIComponent(
       new URL(request.url).pathname.split("/").filter(Boolean).pop() || ""
     );
-    if (!ALLOWED_MODELS.includes(model)) {
+    if (!ALLOWED_MODEL_RE.test(model)) {
       return err(400, "İzin verilmeyen model: " + model);
     }
 
@@ -60,7 +62,7 @@ export default {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": env.GEMINI_API_KEY,
+          "x-goog-api-key": key,
         },
         body: request.body,
       }

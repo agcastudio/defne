@@ -67,7 +67,7 @@ const KAT_OPTIONS = [
 const LS_KEY = "pafta_api_key";
 const LS_INFO = "pafta_info";
 const DEFAULT_MODEL = "gemini-3-pro-image-preview"; // Nano Banana Pro
-const MAX_IMG_DIM = 1568;
+const MAX_IMG_DIM = 2000; // yoğun planlarda kapı/dış hat detayı kaybolmasın
 
 /* ---------------- Durum ---------------- */
 
@@ -82,6 +82,7 @@ const state = {
   outputs: {},    // id -> {id,title,group,prompt,defaultPrompt,status,result,error,sources,base}
   order: [],      // çıktı sırası
   busy: false,
+  analysis: {},   // planKey -> {status, doors:[{x,y,r}], units, common, forUrl, error}
 };
 
 let typoSeq = 1;
@@ -333,16 +334,18 @@ function renderPlanCards() {
         <span class="file-name" id="name-${t.key}"></span>
         <button class="link-danger" id="rm-${t.key}" type="button" hidden>Kaldır</button>
       </div>
+      <div class="an-row" id="an-${t.key}"></div>
     </div>`).join("");
 
   for (const t of active) {
     const render = setupUpload({
       dz: $("#dz-" + t.key), input: $("#file-" + t.key), nameEl: $("#name-" + t.key), rm: $("#rm-" + t.key),
       get: () => state.inputs.plans[t.key],
-      set: (v) => { state.inputs.plans[t.key] = v; },
+      set: (v) => { state.inputs.plans[t.key] = v; delete state.analysis[t.key]; renderAnalysisRows(); },
     });
     render(); // daha önce yüklenmiş görsel varsa önizlemesini geri getir
   }
+  renderAnalysisRows();
 }
 
 const renderKesitUpload = setupUpload({
@@ -396,8 +399,22 @@ function addTypology(data = {}) {
     count: data.count || "",
     katlar: data.katlar || [], // seçilen standart katlar (birden çok olabilir)
     dubleks: data.dubleks || false,
+    unitUid: data.unitUid || "", // plan analizindeki daire eşleşmesi ("" = otomatik)
   });
   renderTypologies();
+}
+
+/* Tipolojinin kaynak katındaki analiz edilmiş daireler için seçenek listesi */
+function unitOptionsHtml(t) {
+  const k = tipSourceFloorKey(t);
+  const a = k ? state.analysis[k] : null;
+  let opts = `<option value="">Otomatik (tip adına göre)</option>`;
+  if (a?.status === "hazir") {
+    for (const u of a.units) {
+      opts += `<option value="${esc(u.uid)}" ${t.unitUid === u.uid ? "selected" : ""}>${esc(u.label)}</option>`;
+    }
+  }
+  return opts;
 }
 
 /* Tipolojinin alan · adet · dubleks · kat özet satırı */
@@ -452,12 +469,14 @@ function renderTypologies() {
             <span>${o.short}</span>
           </label>`).join("")}
         </div>
+        <span class="floors-label">Daire</span>
+        <select class="typo-unit" data-f="unitUid" title="Plan analizinde tespit edilen dairelerden hangisi bu tip? (1. adımda 'Kapı & daire analizi' çalıştırın)">${unitOptionsHtml(t)}</select>
       </div>
     </div>`).join("");
 
   $$(".typology-row", list).forEach((row) => {
     const t = state.typologies.find((x) => x.id === row.dataset.id);
-    $$("input[data-f]", row).forEach((inp) => {
+    $$("input[data-f], select[data-f]", row).forEach((inp) => {
       inp.addEventListener("input", () => { t[inp.dataset.f] = inp.value; });
     });
     $$("input[data-kat]", row).forEach((cb) => {
@@ -521,11 +540,178 @@ function bindApi() {
 }
 
 /* ============================================================
+   ANALİZ — kapı & daire tespiti, tipoloji izolasyonu, doğrulama
+   (js/analysis.js modülü; Gemini çağrıları aynı proxy/anahtar
+   düzeniyle yapılır)
+   ============================================================ */
+
+PaftaAnalysis.configure({
+  // model verilmezse üretim modeli (Nano Banana Pro) kullanılır
+  url: (model) => PROXY_URL
+    ? `${PROXY_URL}/${encodeURIComponent(model || modelName())}`
+    : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model || modelName())}:generateContent`,
+  headers: () => {
+    const h = { "Content-Type": "application/json" };
+    if (!PROXY_URL) h["x-goog-api-key"] = apiKey();
+    return h;
+  },
+});
+
+/* Plan analizini (kapılar + daireler) çalıştırır; sonucu plan başına önbellekler */
+async function ensureAnalysis(k) {
+  const plan = state.inputs.plans[k];
+  if (!plan) throw new Error("Plan bulunamadı.");
+  const existing = state.analysis[k];
+  if (existing?.status === "hazir" && existing.forUrl === plan.dataUrl) return existing;
+  if (existing?.status === "calisiyor") throw new Error("Analiz zaten sürüyor — bitmesini bekleyin.");
+  if (!hasAiAccess()) throw new Error("Analiz için yapay zekâ bağlantısı gerekli.");
+  const a = state.analysis[k] = { status: "calisiyor", forUrl: plan.dataUrl, doors: [], units: [], common: [], error: null };
+  renderAnalysisRows();
+  try {
+    const [doors, regionCands] = await Promise.all([
+      PaftaAnalysis.detectDoors(plan.dataUrl),
+      PaftaAnalysis.detectRegions(plan.dataUrl).catch(() => null), // daire tespiti isteğe bağlı
+    ]);
+    a.doors = doors;
+    if (regionCands) {
+      // Aday koşulardan seçim ve yetim parça birleştirme kapı kanıtıyla yapılır
+      const regions = PaftaAnalysis.chooseRegions(regionCands, doors);
+      if (regions) { a.units = regions.units; a.common = regions.common; }
+    }
+    a.status = "hazir";
+  } catch (err) {
+    a.status = "hata";
+    a.error = err.message || "Analiz başarısız.";
+    throw err;
+  } finally {
+    renderAnalysisRows();
+    renderTypologies();
+  }
+  return a;
+}
+
+function renderAnalysisRows() {
+  for (const t of PLAN_TYPES) {
+    const el = document.getElementById("an-" + t.key);
+    if (!el) continue;
+    const plan = state.inputs.plans[t.key];
+    if (!plan || !hasAiAccess()) { el.innerHTML = ""; continue; }
+    const a = state.analysis[t.key];
+    if (a?.status === "calisiyor") {
+      el.innerHTML = `<span class="an-status">Analiz ediliyor…</span>`;
+    } else if (a?.status === "hazir") {
+      el.innerHTML = `
+        <span class="an-status ok">✓ ${a.doors.length} kapı${a.units.length ? ` · ${a.units.length} daire` : ""}</span>
+        <button class="link-btn" data-an-edit="${t.key}" type="button">✎ Düzenle</button>
+        <button class="link-btn" data-an-redo="${t.key}" type="button" title="Tespiti yeniden çalıştır">↻ Yeniden</button>`;
+    } else {
+      el.innerHTML = `
+        <button class="link-btn" data-an-run="${t.key}" type="button">🔍 Kapı &amp; daire analizi</button>
+        ${a?.status === "hata" ? `<span class="an-status err">${esc(a.error || "hata")}</span>` : ""}`;
+    }
+  }
+}
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-an-run], [data-an-edit], [data-an-redo]");
+  if (!btn) return;
+  const k = btn.dataset.anRun || btn.dataset.anEdit || btn.dataset.anRedo;
+  if (btn.dataset.anRedo) delete state.analysis[k]; // tespit yeniden çalışsın
+  try {
+    const a = await ensureAnalysis(k);
+    PaftaAnalysis.openEditor({
+      title: (PLAN_TYPES.find((t) => t.key === k)?.name || "Plan") + " — Analiz",
+      dataUrl: state.inputs.plans[k].dataUrl,
+      doors: a.doors, units: a.units, common: a.common,
+      onSave: ({ doors, units }) => {
+        a.doors = doors;
+        if (units) a.units = units;
+        renderAnalysisRows();
+        renderTypologies(); // daire seçicileri güncellensin
+        toast("Analiz düzenlemeleri kaydedildi.");
+      },
+    });
+  } catch (err) { toast(err.message, true); }
+});
+
+/* Tipolojiye karşılık gelen daireyi seçer: kullanıcı seçimi > tip adındaki harf > tek daire */
+function pickUnit(a, t) {
+  if (!a?.units?.length) return null;
+  if (t.unitUid) return a.units.find((u) => u.uid === t.unitUid) || null;
+  const m = /tip\s*([a-z])/i.exec(t.name || "");
+  if (m) {
+    const us = a.units.filter((u) => u.letter === m[1].toUpperCase());
+    if (us.length) return us[0];
+  }
+  return a.units.length === 1 ? a.units[0] : null;
+}
+
+/* Üretim öncesi hazırlık: tefriş → kapı işaretli plan; tip → izole edilmiş daire.
+   Analiz başarısız olursa eski davranışa düşülür — akış asla kilitlenmez. */
+async function prepareTefris(it) {
+  const k = it.floorKey;
+  let a = null;
+  try { a = await ensureAnalysis(k); } catch { /* analizsiz devam */ }
+  // Kapı bloğu analiz durumuna göre buildPrompt içinde, dış hat bloğu her zaman eklenir
+  it.prompt = buildPrompt(it) + "\n\n" + OUTLINE_ANNOT_EN;
+  it._verify = { source: state.inputs.plans[k].dataUrl, doors: a?.doors || [] };
+  // Mavi dış hat bandı analizsiz de çizilebilir (yerel hesap); kapılar varsa halkalar da eklenir
+  return [await PaftaAnalysis.annotateDoors(state.inputs.plans[k].dataUrl, a?.doors || [], true)];
+}
+
+async function prepareTip(it) {
+  const t = state.typologies.find((x) => "tip-" + x.id === it.id);
+  if (!t) throw new Error("Tipoloji bulunamadı.");
+  const k = tipSourceFloorKey(t);
+  let a = null;
+  if (k) { try { a = await ensureAnalysis(k); } catch { /* eski yola düş */ } }
+  const unit = a ? pickUnit(a, t) : null;
+  if (unit) {
+    const iso = await PaftaAnalysis.isolateUnit(state.inputs.plans[k].dataUrl, unit, a.doors);
+    it.prompt = TIP_UNIT_PROMPT + "\n\n" + OUTLINE_ANNOT_EN;
+    it._verify = { source: iso.dataUrl, doors: iso.doors };
+    return [await PaftaAnalysis.annotateDoors(iso.dataUrl, iso.doors, true)];
+  }
+  // Eski yol: üretilmiş boyalı plandan ayrıştırma
+  it.prompt = buildPrompt(it);
+  it._verify = null;
+  const srcs = it.sources();
+  if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
+  return srcs;
+}
+
+/* ============================================================
    PROMPT ŞABLONLARI — SABİT
    Site kullanıcıları promptları göremez ve düzenleyemez.
    Şablonları değiştirmek için YALNIZCA bu fonksiyonu düzenleyin;
    palet/stil/kat değişkenleri otomatik yerleştirilir.
    ============================================================ */
+
+/* Dış hat bantlı üretimlerde prompt'a eklenen blok */
+const OUTLINE_ANNOT_EN = `OUTLINE ANNOTATION — CRITICAL:
+- The thick BLUE band drawn on the plan traces the EXACT outer boundary of the building/unit. It is an annotation only — do NOT render the blue band itself; it must not appear in the output.
+- The rendered footprint must follow this boundary precisely: every notch, step, angle and balcony edge stays exactly where the blue band shows it. Nothing may be rendered outside the band, and no drawn part inside it may be cut away, shifted or resized.
+- NEVER straighten, square up or simplify the boundary. Before finishing, trace the band segment by segment and confirm the rendered outline matches it.`;
+
+/* Kapı işaretli üretimlerde prompt'a eklenen blok */
+const DOOR_ANNOT_EN = `DOOR ANNOTATIONS — CRITICAL:
+- The RED CIRCLES drawn on the plan are ANNOTATIONS ONLY, marking the position of every door. Do NOT render the red circles themselves — they must not appear in the output.
+- At EVERY red-circled position render exactly one clearly visible OPEN wooden door leaf, hinged on the drawn side, swung open ~90° following the drawn swing arc, at the drawn width.
+- A doorway at a red circle rendered as blank wall or as an empty opening without a door leaf makes the output INVALID. Before finishing, go circle by circle and confirm each has its door leaf.`;
+
+/* Tipoloji: plandan izole edilmiş TEK dairenin boyanması */
+const TIP_UNIT_PROMPT = `This image shows ONE SINGLE APARTMENT UNIT isolated from a residential floor plan — everything outside the unit has been blanked to plain white. Transform this apartment into a photorealistic top-down 3D render (dollhouse-style cutaway, walls cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic, no perspective.
+
+ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
+- The drawing is ground truth. Reproduce the unit's wall layout EXACTLY: every wall, door, window, room and balcony keeps its exact position, size, proportion, orientation and count. Do NOT add, remove, move, resize or merge anything.
+- Preserve the unit's outline geometry exactly as drawn — NEVER straighten, square up, simplify or "correct" it.
+- Render ONLY this unit. The blank white surroundings must stay a clean, empty light background: do NOT invent neighboring rooms, corridors, walls or any building parts outside the unit's drawn outline.
+
+${DOOR_ANNOT_EN}
+
+FURNITURE: render ONLY what is drawn — each piece in its drawn position, size and orientation. Interpret symbols correctly: rectangles with pillows are beds, X-crossed rectangles are wardrobes, L-shaped counters are kitchen counters, toilets and washbasins only in bathrooms.
+
+MATERIALS & STYLE — warm terracotta, sand beige and muted clay tones, contemporary modern style: warm light-oak wood flooring in living rooms and bedrooms; sand-beige matte ceramic tile in kitchens, bathrooms, foyers and balconies; matte clay-toned kitchen cabinetry with beige stone countertops; white sanitaryware; upholstered furniture in terracotta and muted clay fabrics; cut wall tops uniform off-white; soft diffused lighting with subtle wall shadows; clean light grey-white background; no text, labels, dimensions or annotations. High-end real estate presentation quality.`;
 
 function buildPrompt(item) {
   const p = PALETTES[state.palette];
@@ -534,6 +720,8 @@ function buildPrompt(item) {
   switch (item.group) {
     case "tefris": {
       const floorCtx = item.floorEn ? `\n\nFLOOR CONTEXT: This drawing is the ${item.floorEn} plan of the building.` : "";
+      const anDoors = state.analysis[item.floorKey];
+      const doorAnnot = anDoors?.status === "hazir" && anDoors.doors.length ? `\n\n${DOOR_ANNOT_EN}` : "";
       return `Transform this 2D architectural floor plan into a photorealistic top-down 3D render (dollhouse-style cutaway, walls cut at ~1.2 m height), viewed from directly above at exactly 90°, orthographic view, no perspective or lens distortion.
 
 ABSOLUTE CONSISTENCY RULES — HIGHEST PRIORITY:
@@ -569,7 +757,7 @@ STYLE:
 - Small styling details: potted plants, area rugs under seating groups, muted olive-green accent pillows.
 - Soft diffused ambient lighting, gentle realistic shadows, no harsh highlights.
 - Clean light grey-white background around the plan, no text labels, no dimensions.
-- High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}`;
+- High-end real estate presentation quality, calm and elegant atmosphere.${floorCtx}${doorAnnot}`;
     }
     case "vaziyet":
       return `You are an expert architectural illustrator. Redraw the attached schematic site plan as a high-quality architectural presentation site plan (top-down view): building footprints shown as roof plans with subtle drop shadows, landscaped surroundings with trees drawn as top-view canopies, pathways, roads and parking areas, ground textures (grass, paving, water if present) in a ${p.en} color scheme, property boundary clearly marked with a dashed line. Keep the site layout, building positions and proportions exactly as in the source. Clean white background outside the site, thin precise linework, flat orthographic top-down view. Presentation-board quality.`;
@@ -646,7 +834,7 @@ function rebuildOutputs() {
   const put = (def) => {
     const old = prev[def.id];
     next[def.id] = {
-      status: "bekliyor", result: null, error: null, enabled: true,
+      status: "bekliyor", result: null, error: null, enabled: true, report: null,
       ...old,
       ...def,
       // Promptlar sabittir; her kurulumda buildPrompt() şablonundan tazelenir.
@@ -667,7 +855,7 @@ function rebuildOutputs() {
       put({ id: "tefris-vaziyet", group: "vaziyet", title: "Vaziyet Planı", sub: "Sunum vaziyet planı", base: () => plans.vaziyet.dataUrl, sources: () => [plans.vaziyet.dataUrl] });
       continue;
     }
-    put({ id: "tefris-" + k, group: "tefris", floorEn: t.en, title: t.name, sub: "Tefrişli boyalı plan", base: () => plans[k].dataUrl, sources: () => [plans[k].dataUrl] });
+    put({ id: "tefris-" + k, group: "tefris", floorEn: t.en, floorKey: k, prep: "tefris", title: t.name, sub: "Tefrişli boyalı plan", base: () => plans[k].dataUrl, sources: () => [plans[k].dataUrl] });
     put({
       id: "perspektif-" + k, group: "perspektif", floorEn: t.en,
       title: t.name.replace(" Planı", " Perspektif Planı"),
@@ -707,7 +895,7 @@ function rebuildOutputs() {
     if (!t.name || !prim) continue; // tip planı, ilgili katın boyamasından türetilir
     const tt = t;
     put({
-      id: "tip-" + tt.id, group: "tip", title: `Tipoloji — ${tt.name}`, sub: typoMeta(tt) || "Tip planı",
+      id: "tip-" + tt.id, group: "tip", prep: "tip", title: `Tipoloji — ${tt.name}`, sub: typoMeta(tt) || "Tip planı",
       base: () => {
         const k = tipSourceFloorKey(tt);
         return state.outputs["tefris-" + k]?.result || state.inputs.plans[k].dataUrl;
@@ -782,6 +970,11 @@ function renderOutputs() {
           <div><b>${esc(it.title)}</b><div style="font-size:12px;color:var(--ink-faint)">${esc(it.sub || "")}</div></div>
           <span class="status-chip ${it.status}">${STATUS_LABEL[it.status]}</span>
         </div>
+        ${it.report ? `
+        <div class="verify-line ${it.report.verdict}">
+          <span>${it.report.verdict === "uyumlu" ? "✓" : "⚠"} Dış hat %${(it.report.iou * 100).toFixed(1)} — ${esc(it.report.label)}</span>
+          <button class="link-btn" data-act="ovl" type="button">⇆ Overlay</button>
+        </div>` : ""}
         ${it.error ? `<div class="out-error">${esc(it.error)}</div>` : ""}
         <div class="out-actions">
           <button class="btn btn-soft btn-sm" data-act="gen" type="button" ${state.busy || !it.enabled ? "disabled" : ""}>${it.result ? "↻ Yeniden Üret" : "✦ Üret"}</button>
@@ -795,6 +988,14 @@ function renderOutputs() {
     const it = state.outputs[card.dataset.id];
     $("[data-act=gen]", card).addEventListener("click", () => generateItem(it.id));
     $("[data-act=dl]", card)?.addEventListener("click", () => downloadDataUrl(it.result, `${slug(state.info.projeAdi)}-${it.id}`));
+    $("[data-act=ovl]", card)?.addEventListener("click", (ev) => {
+      const imgEl = $(".out-img img", card);
+      if (!imgEl || !it.report) return;
+      const showing = imgEl.dataset.ovl === "1";
+      imgEl.src = showing ? it.result : it.report.overlay;
+      imgEl.dataset.ovl = showing ? "" : "1";
+      ev.target.textContent = showing ? "⇆ Overlay" : "⇆ Sonuç";
+    });
   });
 }
 
@@ -893,10 +1094,30 @@ async function generateItem(id, silent = false) {
   renderOutputs();
   try {
     if (hasAiAccess()) {
-      const srcs = it.sources();
-      if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
+      let srcs;
+      if (it.prep === "tefris") srcs = await prepareTefris(it);
+      else if (it.prep === "tip") srcs = await prepareTip(it);
+      else {
+        srcs = it.sources();
+        if (!srcs.length) throw new Error(it.missingMsg || "Kaynak görsel bulunamadı.");
+      }
       it.result = await callGemini(it.prompt, srcs);
       it.status = "hazir";
+      it.report = null;
+      if (it._verify) {
+        try {
+          it.report = await PaftaAnalysis.verifyResult(it._verify.source, it._verify.doors, it.result);
+        } catch { /* doğrulama üretimi engellemez */ }
+        // Dış hat belirgin bozuksa BİR kez otomatik yeniden üretilir; iyi olan tutulur
+        if (it.report?.verdict === "bozuk") {
+          setGenStatus(`${it.title}: dış hat sapması algılandı — otomatik olarak bir kez yeniden üretiliyor…`);
+          try {
+            const second = await callGemini(it.prompt, srcs);
+            const rep2 = await PaftaAnalysis.verifyResult(it._verify.source, it._verify.doors, second);
+            if (rep2.iou > it.report.iou) { it.result = second; it.report = rep2; }
+          } catch { /* ilk sonuç kalır */ }
+        }
+      }
     } else {
       it.result = await stylizedPreview(it.base());
       it.status = "onizleme";
