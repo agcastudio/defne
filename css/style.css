@@ -690,3 +690,13 @@ footer p { font-size: 13.5px; color: var(--ink-faint); }
 .tp-table th { font-weight: 700; color: #55503f; width: 42%; font-size: 1cqw; letter-spacing: .06em; text-transform: uppercase; }
 .tp-table td { font-size: 1.3cqw; font-weight: 600; }
 .tp-table tr:last-child th, .tp-table tr:last-child td { border-bottom: none; }
+
+/* --- 2. adıma geçiş: "Görseller analiz ediliyor" bekleme örtüsü --- */
+.an-gate { position: fixed; inset: 0; z-index: 320; background: rgba(24, 20, 14, .45); display: grid; place-items: center; }
+.an-gate-box { display: flex; align-items: center; gap: 12px; background: var(--card, #fff); color: var(--ink, #221e18); border-radius: 14px; padding: 18px 26px; font-weight: 700; box-shadow: 0 16px 48px rgba(0, 0, 0, .28); }
+
+/* --- "+ Tipoloji Ekle" seçenek menüsü (analizde bulunan tipler) --- */
+.typo-add-anchor { position: relative; display: inline-block; }
+.typo-menu { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 80; background: var(--card, #fff); border: 1px solid var(--line, #e5decf); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .14); padding: 6px; display: flex; flex-direction: column; min-width: 240px; }
+.typo-menu button { text-align: left; padding: 8px 12px; border: 0; background: none; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13.5px; color: var(--ink, #221e18); white-space: nowrap; }
+.typo-menu button:hover { background: var(--soft, #f4efe4); }

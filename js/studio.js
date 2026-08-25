@@ -193,7 +193,7 @@ async function toJpegBase64(dataUrl, maxDim = MAX_IMG_DIM) {
    ADIM GEÇİŞLERİ
    ============================================================ */
 
-function goTo(step) {
+async function goTo(step) {
   if (step > 1 && !anyPlan()) {
     toast("Devam etmek için en az bir plan yükleyin.", true);
     goTo(1);
@@ -205,8 +205,9 @@ function goTo(step) {
     $("#fProjeAdi").focus();
     return;
   }
+  // 2. adıma giriş, yüklü planların analizi tamamlanana dek bekletilir
+  if (step === 2) { await runAnalysesBlocking(); renderTypologies(); }
   state.step = step;
-  if (step === 2) autoAnalyzePlans();
   if (step === 3) { rebuildOutputs(); renderOutputs(); }
   if (step === 4) renderPages();
   syncStepUI();
@@ -335,18 +336,17 @@ function renderPlanCards() {
         <span class="file-name" id="name-${t.key}"></span>
         <button class="link-danger" id="rm-${t.key}" type="button" hidden>Kaldır</button>
       </div>
-      <div class="an-row" id="an-${t.key}"></div>
     </div>`).join("");
 
   for (const t of active) {
     const render = setupUpload({
       dz: $("#dz-" + t.key), input: $("#file-" + t.key), nameEl: $("#name-" + t.key), rm: $("#rm-" + t.key),
       get: () => state.inputs.plans[t.key],
-      set: (v) => { state.inputs.plans[t.key] = v; delete state.analysis[t.key]; renderAnalysisRows(); },
+      // Yeni/değişen görsel eski analizi geçersiz kılar; analiz 2. adıma geçişte yenilenir
+      set: (v) => { state.inputs.plans[t.key] = v; delete state.analysis[t.key]; },
     });
     render(); // daha önce yüklenmiş görsel varsa önizlemesini geri getir
   }
-  renderAnalysisRows();
 }
 
 const renderKesitUpload = setupUpload({
@@ -429,19 +429,19 @@ function typoMeta(t) {
   ].filter(Boolean).join(" · ");
 }
 
-/* Plan analizinde bulunan daire tiplerinden tipoloji önerisi: listede karşılığı
-   olmayan her tip harfi için "2+1 Tip A" biçiminde satır ekler (oda şeması
-   analizdeki oda adlarından; alan/adet kullanıcı tarafından tamamlanır).
-   Eklenen satır sayısını döndürür; eklediyse bildirir. */
+/* Plan analizinden tipoloji SEÇENEKLERİ: ana kat analizindeki her tip harfi
+   için (listede karşılığı yoksa) "2+1 Tip A" biçiminde bir seçenek üretir.
+   Oda şeması analizdeki oda adlarından; alan/adet kullanıcı tarafından girilir. */
 const PLAN_TO_KAT = Object.fromEntries(Object.entries(KAT_TO_PLAN).map(([v, k]) => [k, v]));
-function proposeTypologies(k, a) {
+function typologyOptions(k) {
+  const a = state.analysis[k];
   const byLetter = new Map();
   for (const u of a?.units || []) {
     if (!/^[A-Z]$/.test(u.letter || "")) continue;
     if (!byLetter.has(u.letter)) byLetter.set(u.letter, []);
     byLetter.get(u.letter).push(u);
   }
-  let added = 0;
+  const opts = [];
   for (const [L, us] of [...byLetter.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
     const taken = state.typologies.some((t) =>
       (t.unitUid && us.some((u) => u.uid === t.unitUid)) ||
@@ -449,15 +449,37 @@ function proposeTypologies(k, a) {
     if (taken) continue;
     let scheme = null;
     for (const u of us) { scheme = PaftaAnalysis.roomScheme(u); if (scheme) break; }
-    addTypology({
-      name: (scheme ? scheme + " " : "") + "Tip " + L,
-      katlar: PLAN_TO_KAT[k] ? [PLAN_TO_KAT[k]] : [],
-      unitUid: us[0].uid,
+    const name = (scheme ? scheme + " " : "") + "Tip " + L;
+    opts.push({
+      label: `${name} · bu katta ${us.length} daire`,
+      data: { name, katlar: PLAN_TO_KAT[k] ? [PLAN_TO_KAT[k]] : [], unitUid: us[0].uid },
     });
-    added++;
   }
-  if (added) toast(`Plan analizinden ${added} tipoloji önerildi — 2. adımda alan ve adet bilgilerini tamamlayabilirsiniz.`);
-  return added;
+  return opts;
+}
+
+/* "+ Tipoloji Ekle" menüsü: seçenekler yalnızca analizde bulunan tiplerdir */
+function closeTypoMenu() {
+  document.querySelector(".typo-menu")?.remove();
+  document.removeEventListener("click", onTypoMenuOutside);
+}
+function onTypoMenuOutside(e) {
+  if (!e.target.closest(".typo-menu") && !e.target.closest("#btnAddTypo")) closeTypoMenu();
+}
+function openTypoMenu(opts) {
+  closeTypoMenu();
+  const menu = document.createElement("div");
+  menu.className = "typo-menu";
+  menu.innerHTML = opts.map((o, i) => `<button type="button" data-i="${i}">${esc(o.label)}</button>`).join("");
+  $("#btnAddTypo").parentElement.appendChild(menu);
+  menu.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-i]");
+    if (!b) return;
+    addTypology(opts[+b.dataset.i].data);
+    closeTypoMenu();
+    toast("Tipoloji eklendi — alan ve adet bilgilerini tamamlayabilirsiniz.");
+  });
+  setTimeout(() => document.addEventListener("click", onTypoMenuOutside), 0);
 }
 
 /* Dubleks tip için en az iki kat seçili olmasını sağlar.
@@ -502,7 +524,7 @@ function renderTypologies() {
           </label>`).join("")}
         </div>
         <span class="floors-label">Daire</span>
-        <select class="typo-unit" data-f="unitUid" title="Plan analizinde tespit edilen dairelerden hangisi bu tip? (1. adımda 'Kapı & daire analizi' çalıştırın)">${unitOptionsHtml(t)}</select>
+        <select class="typo-unit" data-f="unitUid" title="Plan analizinde tespit edilen dairelerden hangisi bu tip? (analiz 2. adıma geçişte otomatik çalışır)">${unitOptionsHtml(t)}</select>
       </div>
     </div>`).join("");
 
@@ -535,27 +557,22 @@ function renderTypologies() {
   });
 }
 
-$("#btnAddTypo").addEventListener("click", () => addTypology());
-
-/* 2. adımdan tipoloji önerisi: ana kat planını analiz eder, bulunan tipleri ekler.
-   Taze analiz koşusu önerileri kendisi ekler (ensureAnalysis içinde); burada yalnız
-   analiz önbellekten geldiyse öneri çalıştırılır ki bildirimler çiftlenmesin. */
-$("#btnTypoFromPlan").addEventListener("click", async () => {
+/* "+ Tipoloji Ekle": seçenekler girdi planının analizinden gelir. Analiz yoksa
+   önce (bekleme örtüsüyle) çalıştırılır; analiz mümkün değilse boş satır eklenir. */
+$("#btnAddTypo").addEventListener("click", async () => {
+  if (document.querySelector(".typo-menu")) { closeTypoMenu(); return; }
   const k = primaryPlanKey();
-  if (!k) { toast("Önce 1. adımda bir kat planı yükleyin.", true); return; }
-  if (!hasAiAccess()) { toast("Plandan öneri için yapay zekâ bağlantısı gerekli — 3. adımdaki anahtar/proxy ayarına bakın.", true); return; }
-  const btn = $("#btnTypoFromPlan");
-  const eski = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Plan analiz ediliyor…";
-  try {
-    const cached = state.analysis[k]?.status === "hazir" && state.analysis[k].forUrl === state.inputs.plans[k].dataUrl;
-    const a = await ensureAnalysis(k);
-    if (!a.units.length) toast("Analiz daire tespit edemedi — 3. adımdaki ✎ Düzenle ile daireleri elle işaretleyebilirsiniz.", true);
-    else if (cached && !proposeTypologies(k, a)) toast("Analizde bulunan tüm tipler zaten listede.");
-  } catch (err) { toast(err.message || "Analiz başarısız.", true); }
-  btn.disabled = false;
-  btn.textContent = eski;
+  if (!k || !hasAiAccess()) { addTypology(); return; } // analiz imkânsız — boş satır
+  try { await runAnalysesBlocking(); } catch { /* hata toast'u runAnalysesBlocking'te */ }
+  const a = state.analysis[k];
+  if (a?.status !== "hazir" || !a.units.length) {
+    toast("Analiz daire tespit edemedi — boş tipoloji satırı eklendi; ✎ Analizi Düzenle ile daireleri elle işaretleyebilirsiniz.", true);
+    addTypology();
+    return;
+  }
+  const opts = typologyOptions(k);
+  if (!opts.length) { toast("Analizde bulunan tüm tipler zaten listede."); return; }
+  openTypoMenu(opts);
 });
 
 /* ============================================================
@@ -610,88 +627,84 @@ PaftaAnalysis.configure({
   },
 });
 
-/* 2. adıma geçildiğinde yüklü kat planları kendiliğinden analiz edilir (kapı +
-   daire); manuel başlatma düğmesi yoktur. Analizler paralel ve beklenmeden
-   çalışır; tamamlananların tipoloji önerileri ensureAnalysis içinden düşer,
-   durum/hata 1. adımdaki kartın analiz satırında görünür. */
-function autoAnalyzePlans() {
-  if (!hasAiAccess()) return;
-  for (const t of PLAN_TYPES) {
-    if (t.key === "vaziyet" || !state.inputs.plans[t.key]) continue;
-    const a = state.analysis[t.key];
-    if (a?.status === "calisiyor") continue;
-    if (a?.status === "hazir" && a.forUrl === state.inputs.plans[t.key].dataUrl) continue;
-    ensureAnalysis(t.key).catch(() => { /* hata kartın analiz satırında görünür */ });
+/* "Görseller analiz ediliyor" bekleme örtüsü */
+function showAnalysisGate(on) {
+  let g = document.getElementById("anGate");
+  if (on) {
+    if (g) return;
+    g = document.createElement("div");
+    g.id = "anGate";
+    g.className = "an-gate";
+    g.innerHTML = `<div class="an-gate-box"><span class="spinner"></span><span>Görseller analiz ediliyor…</span></div>`;
+    document.body.appendChild(g);
+  } else {
+    g?.remove();
   }
 }
 
-/* Plan analizini (kapılar + daireler) çalıştırır; sonucu plan başına önbellekler */
+/* Yüklü kat planlarının (vaziyet hariç) analizini paralel çalıştırır ve
+   TAMAMLANANA DEK bekleme örtüsü gösterir. Analiz hatası akışı durdurmaz. */
+async function runAnalysesBlocking() {
+  if (!hasAiAccess()) return;
+  const pending = PLAN_TYPES
+    .filter((t) => t.key !== "vaziyet" && state.inputs.plans[t.key])
+    .map((t) => t.key)
+    .filter((k) => {
+      const a = state.analysis[k];
+      return !(a?.status === "hazir" && a.forUrl === state.inputs.plans[k].dataUrl);
+    });
+  if (!pending.length) return;
+  showAnalysisGate(true);
+  const results = await Promise.allSettled(pending.map((k) => ensureAnalysis(k)));
+  showAnalysisGate(false);
+  const fails = results.filter((r) => r.status === "rejected").length;
+  if (fails) toast(`${fails} planın analizi tamamlanamadı — akış yine de sürdürülebilir.`, true);
+}
+
+/* Plan analizini (kapılar + daireler) çalıştırır; sonucu plan başına önbellekler.
+   Aynı plan için süren bir koşu varsa onun sözü döndürülür (paralel çağrılar
+   tek koşuyu paylaşır — bekleme örtüsü ve üretim hazırlıkları aynı anda gelebilir). */
 async function ensureAnalysis(k) {
   const plan = state.inputs.plans[k];
   if (!plan) throw new Error("Plan bulunamadı.");
   const existing = state.analysis[k];
   if (existing?.status === "hazir" && existing.forUrl === plan.dataUrl) return existing;
-  if (existing?.status === "calisiyor") throw new Error("Analiz zaten sürüyor — bitmesini bekleyin.");
+  if (existing?.status === "calisiyor" && existing.promise) return existing.promise;
   if (!hasAiAccess()) throw new Error("Analiz için yapay zekâ bağlantısı gerekli.");
-  const a = state.analysis[k] = { status: "calisiyor", forUrl: plan.dataUrl, doors: [], units: [], common: [], error: null };
-  renderAnalysisRows();
-  try {
-    const [doors, regionCands] = await Promise.all([
-      PaftaAnalysis.detectDoors(plan.dataUrl),
-      PaftaAnalysis.detectRegions(plan.dataUrl).catch(() => null), // daire tespiti isteğe bağlı
-    ]);
-    a.doors = doors;
-    if (regionCands) {
-      // Aday koşulardan seçim ve yetim parça birleştirme kapı kanıtıyla yapılır
-      const regions = PaftaAnalysis.chooseRegions(regionCands, doors);
-      if (regions) { a.units = regions.units; a.common = regions.common; }
+  const a = state.analysis[k] = { status: "calisiyor", forUrl: plan.dataUrl, doors: [], units: [], common: [], error: null, promise: null };
+  a.promise = (async () => {
+    try {
+      const [doors, regionCands] = await Promise.all([
+        PaftaAnalysis.detectDoors(plan.dataUrl),
+        PaftaAnalysis.detectRegions(plan.dataUrl).catch(() => null), // daire tespiti isteğe bağlı
+      ]);
+      a.doors = doors;
+      if (regionCands) {
+        // Aday koşulardan seçim ve yetim parça birleştirme kapı kanıtıyla yapılır
+        const regions = PaftaAnalysis.chooseRegions(regionCands, doors);
+        if (regions) { a.units = regions.units; a.common = regions.common; }
+      }
+      a.status = "hazir";
+    } catch (err) {
+      a.status = "hata";
+      a.error = err.message || "Analiz başarısız.";
+      throw err;
     }
-    a.status = "hazir";
-    // Bulunan daire tipleri, listede karşılığı yoksa tipoloji olarak önerilir
-    if (a.units.length) proposeTypologies(k, a);
-  } catch (err) {
-    a.status = "hata";
-    a.error = err.message || "Analiz başarısız.";
-    throw err;
-  } finally {
-    renderAnalysisRows();
-    renderTypologies();
-  }
-  return a;
+    return a;
+  })();
+  return a.promise;
 }
 
-function renderAnalysisRows() {
-  for (const t of PLAN_TYPES) {
-    const el = document.getElementById("an-" + t.key);
-    if (!el) continue;
-    const plan = state.inputs.plans[t.key];
-    if (!plan || !hasAiAccess()) { el.innerHTML = ""; continue; }
-    const a = state.analysis[t.key];
-    if (a?.status === "calisiyor") {
-      el.innerHTML = `<span class="an-status">Analiz ediliyor…</span>`;
-    } else if (a?.status === "hazir") {
-      el.innerHTML = `
-        <span class="an-status ok">✓ ${a.doors.length} kapı${a.units.length ? ` · ${a.units.length} daire` : ""}</span>
-        <button class="link-btn" data-an-edit="${t.key}" type="button">✎ Düzenle</button>
-        <button class="link-btn" data-an-redo="${t.key}" type="button" title="Tespiti yeniden çalıştır">↻ Yeniden</button>`;
-    } else if (a?.status === "hata") {
-      el.innerHTML = `
-        <span class="an-status err">${esc(a.error || "Analiz başarısız")}</span>
-        <button class="link-btn" data-an-redo="${t.key}" type="button">↻ Yeniden</button>`;
-    } else {
-      // Manuel başlatma yok: analiz 2. adıma geçildiğinde kendiliğinden çalışır
-      el.innerHTML = t.key === "vaziyet" ? "" : `<span class="an-status">Kapı &amp; daire analizi 2. adıma geçince otomatik çalışır</span>`;
-    }
-  }
-}
-
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-an-run], [data-an-edit], [data-an-redo]");
-  if (!btn) return;
-  const k = btn.dataset.anRun || btn.dataset.anEdit || btn.dataset.anRedo;
-  if (btn.dataset.anRedo) delete state.analysis[k]; // tespit yeniden çalışsın
+/* 2. adımdaki "✎ Analizi Düzenle": ana kat planının analizini (gerekirse
+   çalıştırıp) düzenleyicide açar — kapı düzeltme ve daire birleştirme burada. */
+$("#btnEditAnalysis").addEventListener("click", async () => {
+  const k = primaryPlanKey();
+  if (!k) { toast("Önce 1. adımda bir kat planı yükleyin.", true); return; }
+  if (!hasAiAccess()) { toast("Analiz için yapay zekâ bağlantısı gerekli — 3. adımdaki anahtar/proxy ayarına bakın.", true); return; }
   try {
-    const a = await ensureAnalysis(k);
+    await runAnalysesBlocking();
+    const a = state.analysis[k];
+    if (a?.status !== "hazir") { toast(a?.error || "Analiz tamamlanamadı.", true); return; }
     PaftaAnalysis.openEditor({
       title: (PLAN_TYPES.find((t) => t.key === k)?.name || "Plan") + " — Analiz",
       dataUrl: state.inputs.plans[k].dataUrl,
@@ -699,7 +712,6 @@ document.addEventListener("click", async (e) => {
       onSave: ({ doors, units }) => {
         a.doors = doors;
         if (units) a.units = units;
-        renderAnalysisRows();
         renderTypologies(); // daire seçicileri güncellensin
         toast("Analiz düzenlemeleri kaydedildi.");
       },

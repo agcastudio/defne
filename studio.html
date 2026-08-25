@@ -166,10 +166,12 @@
 
       <div class="form-card">
         <h3>Konut Tipolojileri</h3>
-        <p class="sub">Her tip için ayrı plan üretilir; tip planı, yüklediğiniz ana kat planından ilgili birime odaklanılarak türetilir. Kat bilgisi standart listeden seçilir. Tipolojileri elle girmek yerine <b>✦ Plandan Öner</b> ile ana kat planını analiz ettirip bulunan tipleri (oda sayısıyla) otomatik listeletebilirsiniz.</p>
+        <p class="sub">Her tip için ayrı plan üretilir; tip planı, yüklediğiniz ana kat planından ilgili birime odaklanılarak türetilir. <b>+ Tipoloji Ekle</b>, girdi planınızın analizinde bulunan tipleri ("2+1 Tip A" gibi) seçenek olarak sunar; alan ve adet bilgilerini siz tamamlarsınız.</p>
         <div id="typoList"></div>
-        <button class="btn btn-soft btn-sm" id="btnAddTypo" type="button">+ Tipoloji Ekle</button>
-        <button class="btn btn-soft btn-sm" id="btnTypoFromPlan" type="button" title="Ana kat planını analiz eder ve bulunan daire tiplerini oda sayısına göre adlandırıp listeye ekler">✦ Plandan Öner</button>
+        <span class="typo-add-anchor">
+          <button class="btn btn-soft btn-sm" id="btnAddTypo" type="button">+ Tipoloji Ekle</button>
+        </span>
+        <button class="btn btn-soft btn-sm" id="btnEditAnalysis" type="button" title="Plan analizini elle düzeltin — kapı işaretleri ve daire birleştirme burada">✎ Analizi Düzenle</button>
       </div>
 
       <div class="step-actions">
